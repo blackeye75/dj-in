@@ -1,0 +1,284 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent: #ff2d6f;
+  --accent-soft: rgba(255, 45, 111, 0.16);
+  --panel: rgba(12, 15, 24, 0.72);
+  --edge: rgba(255, 255, 255, 0.08);
+}
+
+html,
+body {
+  background: #04050a;
+  color: #e8ecf6;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-display), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* Single-page deck: every section is its own viewport. */
+.snap-root {
+  height: 100dvh;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+}
+
+.snap-section {
+  min-height: 100dvh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+/* Below the desk breakpoint the panels stack, so let sections grow past the
+   viewport and stop forcing snap points. */
+@media (max-width: 900px) {
+  .snap-root {
+    scroll-snap-type: none;
+  }
+  .snap-section {
+    scroll-snap-align: none;
+  }
+}
+
+/* ------------------------------------------------------------- surfaces */
+
+.panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012));
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 18px 50px -30px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.panel-tight {
+  background: rgba(8, 10, 17, 0.66);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+}
+
+.rack-screw::before,
+.rack-screw::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, #4a5164, #14171f);
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.9);
+}
+.rack-screw::before {
+  left: 10px;
+}
+.rack-screw::after {
+  right: 10px;
+}
+
+.label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(232, 236, 246, 0.5);
+}
+
+.readout {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.06em;
+}
+
+/* --------------------------------------------------------------- faders */
+
+.fader {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 26px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.fader::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--accent) 0%,
+    var(--accent) var(--pct, 50%),
+    rgba(255, 255, 255, 0.1) var(--pct, 50%),
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+.fader::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--accent) 0%,
+    var(--accent) var(--pct, 50%),
+    rgba(255, 255, 255, 0.1) var(--pct, 50%),
+    rgba(255, 255, 255, 0.1) 100%
+  );
+}
+
+.fader::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #f2f5ff, #9aa3bd);
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 10px var(--accent-soft), 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.fader::-moz-range-thumb {
+  width: 16px;
+  height: 22px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #f2f5ff, #9aa3bd);
+  border: 1px solid rgba(0, 0, 0, 0.5);
+}
+
+.fader:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------- switch */
+
+.switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid var(--edge);
+  background: rgba(255, 255, 255, 0.06);
+  transition: background 160ms ease, box-shadow 160ms ease;
+  flex: none;
+}
+
+.switch[data-on='true'] {
+  background: var(--accent);
+  box-shadow: 0 0 16px var(--accent-soft);
+}
+
+.switch span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #f4f6ff;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.switch[data-on='true'] span {
+  transform: translateX(20px);
+}
+
+/* ------------------------------------------------------------- segments */
+
+.seg {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 3px;
+  gap: 3px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--edge);
+}
+
+.seg button {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  border-radius: 7px;
+  color: rgba(232, 236, 246, 0.6);
+  transition: all 140ms ease;
+  white-space: nowrap;
+}
+
+.seg button[data-active='true'] {
+  background: var(--accent);
+  color: #08090f;
+  font-weight: 600;
+  box-shadow: 0 0 14px var(--accent-soft);
+}
+
+/* ---------------------------------------------------------------- misc */
+
+.btn {
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.05);
+  transition: all 150ms ease;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-accent {
+  background: var(--accent);
+  color: #08090f;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.btn-accent:hover {
+  filter: brightness(1.1);
+  background: var(--accent);
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 99px;
+}
+
+.queue-item[data-dragging='true'] {
+  opacity: 0.35;
+}
+
+.queue-item[data-over='true'] {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.lyric-line {
+  transition: color 240ms ease, opacity 240ms ease, transform 240ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snap-root {
+    scroll-behavior: auto;
+  }
+  .switch span,
+  .lyric-line {
+    transition: none;
+  }
+}
