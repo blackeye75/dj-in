@@ -23,6 +23,16 @@ export default function LightStage({ className = '' }) {
     const rig = new Rig(canvas);
     rigRef.current = rig;
 
+    // Brand mark worn by the DJ. Drop your own file at either path to swap it;
+    // the rig draws a plain head until one loads, so a missing file is harmless.
+    const logo = new Image();
+    logo.decoding = 'async';
+    logo.onload = () => rig.setLogo(logo);
+    logo.onerror = () => {
+      if (logo.src.endsWith('.svg')) logo.src = '/logo.png';
+    };
+    logo.src = '/logo.svg';
+
     const resize = () => {
       const box = canvas.parentElement.getBoundingClientRect();
       rig.resize(Math.max(320, box.width), Math.max(240, box.height));
