@@ -1,0 +1,208 @@
+From db3c52824fa4e8d66c6aed8dbffaa7f32e258035 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 14 Aug 2026 13:45:36 +0000
+Subject: [PATCH 2/2] Make the blinder button legible as a momentary control
+
+The button fired, but nothing about it read as working: the flash decayed in
+under half a second behind the desk section's scrim, the button showed no
+state, and on themes that patch blinders out (Relax, Focus, Sleep) it did
+nothing at all with no explanation.
+
+- Hold to fire: pointer down (or the B key) holds the blinders at full
+  output, release starts the decay.
+- Blinders now lift the whole frame, not just two pools, since they point at
+  the audience.
+- Pressing when the fixture is patched out switches it on and says so.
+- The button lights while it is firing.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_018JjAD7WNZmP26cnkvFDZws
+---
+ app/show-context.jsx       | 19 +++++++++++++-
+ components/ControlDesk.jsx | 52 ++++++++++++++++++++++++++++++++++----
+ lib/lightEngine.js         | 29 ++++++++++++++++-----
+ 3 files changed, 88 insertions(+), 12 deletions(-)
+
+diff --git a/app/show-context.jsx b/app/show-context.jsx
+index df958b7..3c7f896 100644
+--- a/app/show-context.jsx
++++ b/app/show-context.jsx
+@@ -130,7 +130,23 @@ export function ShowProvider({ children }) {
+     []
+   );
+   const resetScene = useCallback(() => setScene(defaultSceneFor(themeId)), [themeId]);
+-  const pulseBlinder = useCallback(() => rigRef.current?.pulseBlinder(), []);
++
++  /**
++   * Momentary blinder. Patches the fixture in if the current theme had it out,
++   * otherwise the button would be a dead control with nothing to show for it.
++   */
++  const pulseBlinder = useCallback(() => {
++    let patchedIn = false;
++    setScene((s) => {
++      if (s.fixtures.blinder) return s;
++      patchedIn = true;
++      return { ...s, fixtures: { ...s.fixtures, blinder: true } };
++    });
++    rigRef.current?.pulseBlinder(true);
++    if (patchedIn) notify('Blinders were patched out — switched them on for you.');
++  }, [notify]);
++
++  const releaseBlinder = useCallback(() => rigRef.current?.releaseBlinder(), []);
+ 
+   /* ------------------------------------------------------------- queue */
+ 
+@@ -286,6 +302,7 @@ export function ShowProvider({ children }) {
+     toggleFixture,
+     resetScene,
+     pulseBlinder,
++    releaseBlinder,
+     rigRef,
+     engineRef,
+     tracks,
+diff --git a/components/ControlDesk.jsx b/components/ControlDesk.jsx
+index c934d5d..6ccf2c2 100644
+--- a/components/ControlDesk.jsx
++++ b/components/ControlDesk.jsx
+@@ -1,5 +1,6 @@
+ 'use client';
+ 
++import { useCallback, useEffect, useState } from 'react';
+ import { useShow } from '@/app/show-context';
+ import { COLOR_MODES, DIRECTIONS, FIXTURE_HINTS, FIXTURE_LABELS, PATTERNS } from '@/lib/themes';
+ import { Fader, LedDot, Panel, Segmented, Switch } from './ui';
+@@ -11,9 +12,39 @@ const GROUPS = [
+ ];
+ 
+ export default function ControlDesk() {
+-  const { scene, updateScene, toggleFixture, resetScene, pulseBlinder, theme, playerState } = useShow();
++  const { scene, updateScene, toggleFixture, resetScene, pulseBlinder, releaseBlinder, theme, playerState } = useShow();
++  const [blinding, setBlinding] = useState(false);
+   const f = scene.fixtures;
+ 
++  const holdBlinder = useCallback(() => {
++    setBlinding(true);
++    pulseBlinder();
++  }, [pulseBlinder]);
++
++  const dropBlinder = useCallback(() => {
++    setBlinding(false);
++    releaseBlinder();
++  }, [releaseBlinder]);
++
++  // Hold B for the blinders, the way a desk gives you a hardware flash button.
++  useEffect(() => {
++    const isTyping = (el) => el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
++    const down = (e) => {
++      if (e.key !== 'b' && e.key !== 'B') return;
++      if (e.repeat || isTyping(document.activeElement)) return;
++      holdBlinder();
++    };
++    const up = (e) => {
++      if (e.key === 'b' || e.key === 'B') dropBlinder();
++    };
++    window.addEventListener('keydown', down);
++    window.addEventListener('keyup', up);
++    return () => {
++      window.removeEventListener('keydown', down);
++      window.removeEventListener('keyup', up);
++    };
++  }, [holdBlinder, dropBlinder]);
++
+   return (
+     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+       {/* ------------------------------------------------------ master */}
+@@ -44,10 +75,16 @@ export default function ControlDesk() {
+           </button>
+           <button
+             type="button"
+-            className="btn"
+-            onMouseDown={pulseBlinder}
+-            onTouchStart={pulseBlinder}
+-            title="Momentary — fires the blinders at the crowd"
++            className={`btn select-none ${blinding ? 'btn-accent' : ''}`}
++            style={blinding ? { background: '#fff6dc', color: '#08090f', boxShadow: '0 0 26px #fff6dc' } : undefined}
++            onPointerDown={(e) => {
++              e.currentTarget.setPointerCapture?.(e.pointerId);
++              holdBlinder();
++            }}
++            onPointerUp={dropBlinder}
++            onPointerCancel={dropBlinder}
++            onPointerLeave={dropBlinder}
++            title="Hold to fire the blinders at the crowd (or hold the B key)"
+           >
+             Blind!
+           </button>
+@@ -57,6 +94,11 @@ export default function ControlDesk() {
+         </div>
+ 
+         <p className="mt-3 text-[10px] text-white/35 leading-relaxed">
++          <span className="text-white/50">Blind!</span> is momentary — hold it (or the <kbd>B</kbd> key) and the blinders
++          stay lit at the crowd; let go and they decay. Blackout is the only latching button here.
++        </p>
++
++        <p className="mt-2 text-[10px] text-white/35 leading-relaxed">
+           Beat clock:{' '}
+           <span className="text-white/60">
+             {playerState.analysable ? 'live audio analysis' : `${theme.bpm} BPM (theme tempo)`}
+diff --git a/lib/lightEngine.js b/lib/lightEngine.js
+index 2c454bd..9d4dab6 100644
+--- a/lib/lightEngine.js
++++ b/lib/lightEngine.js
+@@ -262,6 +262,7 @@ export class Rig {
+     this.clock = createBeatClock();
+     this.t = 0;
+     this.blinderPulse = -10;
++    this.blinderHold = false;
+     this.bloom = null;
+     this.bloomCtx = null;
+     this.dpr = 1;
+@@ -285,7 +286,16 @@ export class Rig {
+     this.bloom.height = Math.max(1, Math.floor(cssH / 4));
+   }
+ 
+-  pulseBlinder() {
++  /** Press the blinders. While `hold` is true they stay at full output. */
++  pulseBlinder(hold = false) {
++    this.blinderPulse = this.t;
++    this.blinderHold = hold;
++  }
++
++  /** Release a held blinder — the decay starts from this moment. */
++  releaseBlinder() {
++    if (!this.blinderHold) return;
++    this.blinderHold = false;
+     this.blinderPulse = this.t;
+   }
+ 
+@@ -539,15 +549,22 @@ export class Rig {
+ 
+   #blinders(ctx, L, scene, t, master, clock) {
+     const auto = clock.phase < 0.12 && clock.beat % 8 === 0;
+-    const manual = t - this.blinderPulse;
+-    const env = manual < 0.55 ? Math.pow(1 - manual / 0.55, 2) : auto ? 0.55 : 0;
++    const since = t - this.blinderPulse;
++    const decay = 0.7;
++    const env = this.blinderHold ? 1 : since < decay ? Math.pow(1 - since / decay, 2) : auto ? 0.5 : 0;
+     if (env <= 0.001) return;
++
++    const c = [255, 246, 220];
++
++    // Blinders point at the audience, so the whole frame lifts, not just a pool.
++    ctx.fillStyle = rgba(c, master * env * 0.3);
++    ctx.fillRect(0, 0, L.w, L.h);
++
+     L.blinders.forEach((b) => {
+-      const c = [255, 244, 214];
+-      drawPool(ctx, b.x, b.y + L.h * 0.05, L.w * 0.42, L.h * 0.5, c, master * env * 0.5);
++      drawPool(ctx, b.x, b.y + L.h * 0.12, L.w * 0.5, L.h * 0.85, c, master * env * 0.75);
+       for (let cell = 0; cell < 4; cell++) {
+         const cx = b.x + (cell - 1.5) * L.w * 0.018;
+-        drawPool(ctx, cx, b.y, L.h * 0.035, L.h * 0.035, c, master * env);
++        drawPool(ctx, cx, b.y, L.h * 0.045, L.h * 0.045, c, master * env);
+       }
+     });
+   }
+-- 
+2.43.0
+

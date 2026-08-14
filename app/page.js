@@ -123,10 +123,10 @@ function StageSection() {
       <header className="flex items-start justify-between gap-4 p-5 md:p-7">
         <div>
           <h1 className="text-2xl md:text-4xl font-black tracking-tight leading-none">
-            DJ <span style={{ color: theme.accent }}>RAMP</span>
+            SYN<span style={{ color: theme.accent }}>ORA</span>
           </h1>
           <p className="text-[11px] md:text-xs text-white/45 mt-1 tracking-[0.18em] uppercase">
-            Deluxe salon lighting desk · made by Priyanshu Raj
+            Reactive Music & Lighting Experience · made by Priyanshu Raj
           </p>
         </div>
         <div className="flex items-center gap-2">

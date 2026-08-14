@@ -1,0 +1,326 @@
+diff --git a/README.md b/README.md
+index 37dba3b..ec32349 100644
+--- a/README.md
++++ b/README.md
+@@ -92,7 +92,121 @@ End-to-end checks (needs a server on `$BASE`, default `http://localhost:3213`):
+ BASE=http://localhost:3000 npm run e2e
+ ```
+ 
+-### Environment
++---
++
++## Setting up the environment file
++
++**None of this is required to run the app.** With no env file at all it boots on
++an in-memory store seeded with the full catalogue, the House Deck plays, and
++iTunes search works — because it needs no key. Add variables only for the
++features you want.
++
++### 1. Create the file
++
++In the project root (next to `package.json`):
++
++```bash
++cp .env.example .env.local
++```
++
++On Windows PowerShell: `Copy-Item .env.example .env.local`
++
++Note the leading dot — `.env.example` is a hidden file, so enable "show hidden
++files" if your file manager doesn't list it. If it's missing entirely, just
++create `.env.local` by hand and paste the block from step 5.
++
++Next.js loads `.env.local` automatically. **It is gitignored, so your keys never
++get committed** — that's why the file isn't in the repo to begin with. Restart
++the dev server after every change; env vars are read at boot, not per request.
++
++### 2. MongoDB Atlas — `MONGODB_URI`
++
++Only needed if you want tracks, lyrics and show numbers to survive a restart.
++
++1. Sign in at [cloud.mongodb.com](https://cloud.mongodb.com) and create a free
++   **M0** cluster.
++2. **Database Access → Add New Database User.** Pick a username and password
++   (avoid `@ : / ?` in the password, or you'll have to URL-encode them).
++3. **Network Access → Add IP Address.** Your own IP for local work; for a
++   deployed show, allow your host's egress range. `0.0.0.0/0` works for testing
++   but leaves the cluster open to the internet.
++4. **Clusters → Connect → Drivers → Node.js**, and copy the string.
++5. Replace `<password>` with the real password and put the database name before
++   the `?`:
++
++```
++MONGODB_URI="mongodb+srv://djuser:YourPassword@cluster0.ab1cd.mongodb.net/dj_in?retryWrites=true&w=majority"
++MONGODB_DB=dj_in
++```
++
++The `tracks` collection is created and seeded automatically on the first read —
++there is no migration or seed command to run. To confirm it took, open the site
++and check the **Storage** row in *Show numbers*: it reads `MongoDB Atlas` when
++connected, `In-memory` when not.
++
++### 3. Admin lock — `ADMIN_KEY`
++
++Leave it empty and `/admin` is open to anyone who finds the URL. Set it before
++deploying:
++
++```
++ADMIN_KEY=some-long-random-string
++```
++
++The panel then shows a key field; what you type is kept in `localStorage` and
++sent as the `x-admin-key` header on every write. Generate one with
++`openssl rand -hex 24`.
++
++### 4. Music providers — optional
++
++**YouTube** (full-length playback, not 30-second previews):
++
++1. [console.cloud.google.com](https://console.cloud.google.com) → create a project.
++2. **APIs & Services → Library → YouTube Data API v3 → Enable.**
++3. **Credentials → Create credentials → API key**, then restrict it to that API.
++
++```
++YOUTUBE_API_KEY=AIza...
++```
++
++**Spotify** (metadata search only — see the note at the end of this file):
++
++1. [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) →
++   **Create app**. Any redirect URI will do; this app uses client-credentials
++   auth, not user login.
++2. Copy the Client ID and Client Secret.
++
++```
++SPOTIFY_CLIENT_ID=...
++SPOTIFY_CLIENT_SECRET=...
++```
++
++A provider only appears in the search dropdown once its credentials are present.
++
++### 5. A complete file
++
++```bash
++# Database — omit both lines to run in memory
++MONGODB_URI="mongodb+srv://djuser:YourPassword@cluster0.ab1cd.mongodb.net/dj_in?retryWrites=true&w=majority"
++MONGODB_DB=dj_in
++
++# Admin panel lock — leave empty for an open local demo
++ADMIN_KEY=
++
++# Music providers — iTunes always works without a key
++YOUTUBE_API_KEY=
++SPOTIFY_CLIENT_ID=
++SPOTIFY_CLIENT_SECRET=
++```
++
++### 6. Deploying
++
++Do **not** upload `.env.local`. On Vercel, add each variable under
++**Project → Settings → Environment Variables** and redeploy — the build only
++picks up new values on a fresh deploy. Same idea on any other host: set them as
++real environment variables in the platform's dashboard.
++
++### Variable reference
+ 
+ | Variable | Effect |
+ | --- | --- |
+@@ -102,7 +216,17 @@ BASE=http://localhost:3000 npm run e2e
+ | `YOUTUBE_API_KEY` | Enables YouTube search and full-length playback through the IFrame player. |
+ | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Enables Spotify metadata search; playable only where a `preview_url` still exists. |
+ 
+-The `tracks` collection is seeded automatically on first read.
++### If something doesn't take
++
++- **Still says "In-memory"** — the URI is wrong, the password wasn't substituted,
++  or your IP isn't allowed in Network Access. The server log prints the driver's
++  connection error.
++- **Changes ignored** — the file is named `.env` instead of `.env.local`, sits
++  outside the project root, or the dev server wasn't restarted.
++- **Password has `@`, `:`, `/` or `?`** — URL-encode it (`@` → `%40`), or reset
++  it to something alphanumeric.
++- **Admin writes return 401** — `ADMIN_KEY` is set on the server but the key
++  typed into the panel doesn't match.
+ 
+ ### A note on the seeded catalogue
+ 
+diff --git a/app/show-context.jsx b/app/show-context.jsx
+index df958b7..3c7f896 100644
+--- a/app/show-context.jsx
++++ b/app/show-context.jsx
+@@ -130,7 +130,23 @@ export function ShowProvider({ children }) {
+     []
+   );
+   const resetScene = useCallback(() => setScene(defaultSceneFor(themeId)), [themeId]);
+-  const pulseBlinder = useCallback(() => rigRef.current?.pulseBlinder(), []);
++
++  /**
++   * Momentary blinder. Patches the fixture in if the current theme had it out,
++   * otherwise the button would be a dead control with nothing to show for it.
++   */
++  const pulseBlinder = useCallback(() => {
++    let patchedIn = false;
++    setScene((s) => {
++      if (s.fixtures.blinder) return s;
++      patchedIn = true;
++      return { ...s, fixtures: { ...s.fixtures, blinder: true } };
++    });
++    rigRef.current?.pulseBlinder(true);
++    if (patchedIn) notify('Blinders were patched out — switched them on for you.');
++  }, [notify]);
++
++  const releaseBlinder = useCallback(() => rigRef.current?.releaseBlinder(), []);
+ 
+   /* ------------------------------------------------------------- queue */
+ 
+@@ -286,6 +302,7 @@ export function ShowProvider({ children }) {
+     toggleFixture,
+     resetScene,
+     pulseBlinder,
++    releaseBlinder,
+     rigRef,
+     engineRef,
+     tracks,
+diff --git a/components/ControlDesk.jsx b/components/ControlDesk.jsx
+index c934d5d..6ccf2c2 100644
+--- a/components/ControlDesk.jsx
++++ b/components/ControlDesk.jsx
+@@ -1,5 +1,6 @@
+ 'use client';
+ 
++import { useCallback, useEffect, useState } from 'react';
+ import { useShow } from '@/app/show-context';
+ import { COLOR_MODES, DIRECTIONS, FIXTURE_HINTS, FIXTURE_LABELS, PATTERNS } from '@/lib/themes';
+ import { Fader, LedDot, Panel, Segmented, Switch } from './ui';
+@@ -11,9 +12,39 @@ const GROUPS = [
+ ];
+ 
+ export default function ControlDesk() {
+-  const { scene, updateScene, toggleFixture, resetScene, pulseBlinder, theme, playerState } = useShow();
++  const { scene, updateScene, toggleFixture, resetScene, pulseBlinder, releaseBlinder, theme, playerState } = useShow();
++  const [blinding, setBlinding] = useState(false);
+   const f = scene.fixtures;
+ 
++  const holdBlinder = useCallback(() => {
++    setBlinding(true);
++    pulseBlinder();
++  }, [pulseBlinder]);
++
++  const dropBlinder = useCallback(() => {
++    setBlinding(false);
++    releaseBlinder();
++  }, [releaseBlinder]);
++
++  // Hold B for the blinders, the way a desk gives you a hardware flash button.
++  useEffect(() => {
++    const isTyping = (el) => el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
++    const down = (e) => {
++      if (e.key !== 'b' && e.key !== 'B') return;
++      if (e.repeat || isTyping(document.activeElement)) return;
++      holdBlinder();
++    };
++    const up = (e) => {
++      if (e.key === 'b' || e.key === 'B') dropBlinder();
++    };
++    window.addEventListener('keydown', down);
++    window.addEventListener('keyup', up);
++    return () => {
++      window.removeEventListener('keydown', down);
++      window.removeEventListener('keyup', up);
++    };
++  }, [holdBlinder, dropBlinder]);
++
+   return (
+     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+       {/* ------------------------------------------------------ master */}
+@@ -44,10 +75,16 @@ export default function ControlDesk() {
+           </button>
+           <button
+             type="button"
+-            className="btn"
+-            onMouseDown={pulseBlinder}
+-            onTouchStart={pulseBlinder}
+-            title="Momentary — fires the blinders at the crowd"
++            className={`btn select-none ${blinding ? 'btn-accent' : ''}`}
++            style={blinding ? { background: '#fff6dc', color: '#08090f', boxShadow: '0 0 26px #fff6dc' } : undefined}
++            onPointerDown={(e) => {
++              e.currentTarget.setPointerCapture?.(e.pointerId);
++              holdBlinder();
++            }}
++            onPointerUp={dropBlinder}
++            onPointerCancel={dropBlinder}
++            onPointerLeave={dropBlinder}
++            title="Hold to fire the blinders at the crowd (or hold the B key)"
+           >
+             Blind!
+           </button>
+@@ -57,6 +94,11 @@ export default function ControlDesk() {
+         </div>
+ 
+         <p className="mt-3 text-[10px] text-white/35 leading-relaxed">
++          <span className="text-white/50">Blind!</span> is momentary — hold it (or the <kbd>B</kbd> key) and the blinders
++          stay lit at the crowd; let go and they decay. Blackout is the only latching button here.
++        </p>
++
++        <p className="mt-2 text-[10px] text-white/35 leading-relaxed">
+           Beat clock:{' '}
+           <span className="text-white/60">
+             {playerState.analysable ? 'live audio analysis' : `${theme.bpm} BPM (theme tempo)`}
+diff --git a/lib/lightEngine.js b/lib/lightEngine.js
+index 2c454bd..9d4dab6 100644
+--- a/lib/lightEngine.js
++++ b/lib/lightEngine.js
+@@ -262,6 +262,7 @@ export class Rig {
+     this.clock = createBeatClock();
+     this.t = 0;
+     this.blinderPulse = -10;
++    this.blinderHold = false;
+     this.bloom = null;
+     this.bloomCtx = null;
+     this.dpr = 1;
+@@ -285,7 +286,16 @@ export class Rig {
+     this.bloom.height = Math.max(1, Math.floor(cssH / 4));
+   }
+ 
+-  pulseBlinder() {
++  /** Press the blinders. While `hold` is true they stay at full output. */
++  pulseBlinder(hold = false) {
++    this.blinderPulse = this.t;
++    this.blinderHold = hold;
++  }
++
++  /** Release a held blinder — the decay starts from this moment. */
++  releaseBlinder() {
++    if (!this.blinderHold) return;
++    this.blinderHold = false;
+     this.blinderPulse = this.t;
+   }
+ 
+@@ -539,15 +549,22 @@ export class Rig {
+ 
+   #blinders(ctx, L, scene, t, master, clock) {
+     const auto = clock.phase < 0.12 && clock.beat % 8 === 0;
+-    const manual = t - this.blinderPulse;
+-    const env = manual < 0.55 ? Math.pow(1 - manual / 0.55, 2) : auto ? 0.55 : 0;
++    const since = t - this.blinderPulse;
++    const decay = 0.7;
++    const env = this.blinderHold ? 1 : since < decay ? Math.pow(1 - since / decay, 2) : auto ? 0.5 : 0;
+     if (env <= 0.001) return;
++
++    const c = [255, 246, 220];
++
++    // Blinders point at the audience, so the whole frame lifts, not just a pool.
++    ctx.fillStyle = rgba(c, master * env * 0.3);
++    ctx.fillRect(0, 0, L.w, L.h);
++
+     L.blinders.forEach((b) => {
+-      const c = [255, 244, 214];
+-      drawPool(ctx, b.x, b.y + L.h * 0.05, L.w * 0.42, L.h * 0.5, c, master * env * 0.5);
++      drawPool(ctx, b.x, b.y + L.h * 0.12, L.w * 0.5, L.h * 0.85, c, master * env * 0.75);
+       for (let cell = 0; cell < 4; cell++) {
+         const cx = b.x + (cell - 1.5) * L.w * 0.018;
+-        drawPool(ctx, cx, b.y, L.h * 0.035, L.h * 0.035, c, master * env);
++        drawPool(ctx, cx, b.y, L.h * 0.045, L.h * 0.045, c, master * env);
+       }
+     });
+   }

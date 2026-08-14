@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useEffect, useState } from 'react';
 import { useShow } from '@/app/show-context';
 import { COLOR_MODES, DIRECTIONS, FIXTURE_HINTS, FIXTURE_LABELS, PATTERNS } from '@/lib/themes';
 import { Fader, LedDot, Panel, Segmented, Switch } from './ui';
@@ -11,8 +12,38 @@ const GROUPS = [
 ];
 
 export default function ControlDesk() {
-  const { scene, updateScene, toggleFixture, resetScene, pulseBlinder, theme, playerState } = useShow();
+  const { scene, updateScene, toggleFixture, resetScene, pulseBlinder, releaseBlinder, theme, playerState } = useShow();
+  const [blinding, setBlinding] = useState(false);
   const f = scene.fixtures;
+
+  const holdBlinder = useCallback(() => {
+    setBlinding(true);
+    pulseBlinder();
+  }, [pulseBlinder]);
+
+  const dropBlinder = useCallback(() => {
+    setBlinding(false);
+    releaseBlinder();
+  }, [releaseBlinder]);
+
+  // Hold B for the blinders, the way a desk gives you a hardware flash button.
+  useEffect(() => {
+    const isTyping = (el) => el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+    const down = (e) => {
+      if (e.key !== 'b' && e.key !== 'B') return;
+      if (e.repeat || isTyping(document.activeElement)) return;
+      holdBlinder();
+    };
+    const up = (e) => {
+      if (e.key === 'b' || e.key === 'B') dropBlinder();
+    };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+    };
+  }, [holdBlinder, dropBlinder]);
 
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -44,10 +75,16 @@ export default function ControlDesk() {
           </button>
           <button
             type="button"
-            className="btn"
-            onMouseDown={pulseBlinder}
-            onTouchStart={pulseBlinder}
-            title="Momentary — fires the blinders at the crowd"
+            className={`btn select-none ${blinding ? 'btn-accent' : ''}`}
+            style={blinding ? { background: '#fff6dc', color: '#08090f', boxShadow: '0 0 26px #fff6dc' } : undefined}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture?.(e.pointerId);
+              holdBlinder();
+            }}
+            onPointerUp={dropBlinder}
+            onPointerCancel={dropBlinder}
+            onPointerLeave={dropBlinder}
+            title="Hold to fire the blinders at the crowd (or hold the B key)"
           >
             Blind!
           </button>
@@ -57,6 +94,11 @@ export default function ControlDesk() {
         </div>
 
         <p className="mt-3 text-[10px] text-white/35 leading-relaxed">
+          <span className="text-white/50">Blind!</span> is momentary — hold it (or the <kbd>B</kbd> key) and the blinders
+          stay lit at the crowd; let go and they decay. Blackout is the only latching button here.
+        </p>
+
+        <p className="mt-2 text-[10px] text-white/35 leading-relaxed">
           Beat clock:{' '}
           <span className="text-white/60">
             {playerState.analysable ? 'live audio analysis' : `${theme.bpm} BPM (theme tempo)`}

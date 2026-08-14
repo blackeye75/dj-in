@@ -92,7 +92,121 @@ End-to-end checks (needs a server on `$BASE`, default `http://localhost:3213`):
 BASE=http://localhost:3000 npm run e2e
 ```
 
-### Environment
+---
+
+## Setting up the environment file
+
+**None of this is required to run the app.** With no env file at all it boots on
+an in-memory store seeded with the full catalogue, the House Deck plays, and
+iTunes search works — because it needs no key. Add variables only for the
+features you want.
+
+### 1. Create the file
+
+In the project root (next to `package.json`):
+
+```bash
+cp .env.example .env.local
+```
+
+On Windows PowerShell: `Copy-Item .env.example .env.local`
+
+Note the leading dot — `.env.example` is a hidden file, so enable "show hidden
+files" if your file manager doesn't list it. If it's missing entirely, just
+create `.env.local` by hand and paste the block from step 5.
+
+Next.js loads `.env.local` automatically. **It is gitignored, so your keys never
+get committed** — that's why the file isn't in the repo to begin with. Restart
+the dev server after every change; env vars are read at boot, not per request.
+
+### 2. MongoDB Atlas — `MONGODB_URI`
+
+Only needed if you want tracks, lyrics and show numbers to survive a restart.
+
+1. Sign in at [cloud.mongodb.com](https://cloud.mongodb.com) and create a free
+   **M0** cluster.
+2. **Database Access → Add New Database User.** Pick a username and password
+   (avoid `@ : / ?` in the password, or you'll have to URL-encode them).
+3. **Network Access → Add IP Address.** Your own IP for local work; for a
+   deployed show, allow your host's egress range. `0.0.0.0/0` works for testing
+   but leaves the cluster open to the internet.
+4. **Clusters → Connect → Drivers → Node.js**, and copy the string.
+5. Replace `<password>` with the real password and put the database name before
+   the `?`:
+
+```
+MONGODB_URI="mongodb+srv://djuser:YourPassword@cluster0.ab1cd.mongodb.net/dj_in?retryWrites=true&w=majority"
+MONGODB_DB=dj_in
+```
+
+The `tracks` collection is created and seeded automatically on the first read —
+there is no migration or seed command to run. To confirm it took, open the site
+and check the **Storage** row in *Show numbers*: it reads `MongoDB Atlas` when
+connected, `In-memory` when not.
+
+### 3. Admin lock — `ADMIN_KEY`
+
+Leave it empty and `/admin` is open to anyone who finds the URL. Set it before
+deploying:
+
+```
+ADMIN_KEY=some-long-random-string
+```
+
+The panel then shows a key field; what you type is kept in `localStorage` and
+sent as the `x-admin-key` header on every write. Generate one with
+`openssl rand -hex 24`.
+
+### 4. Music providers — optional
+
+**YouTube** (full-length playback, not 30-second previews):
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → create a project.
+2. **APIs & Services → Library → YouTube Data API v3 → Enable.**
+3. **Credentials → Create credentials → API key**, then restrict it to that API.
+
+```
+YOUTUBE_API_KEY=AIza...
+```
+
+**Spotify** (metadata search only — see the note at the end of this file):
+
+1. [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) →
+   **Create app**. Any redirect URI will do; this app uses client-credentials
+   auth, not user login.
+2. Copy the Client ID and Client Secret.
+
+```
+SPOTIFY_CLIENT_ID=...
+SPOTIFY_CLIENT_SECRET=...
+```
+
+A provider only appears in the search dropdown once its credentials are present.
+
+### 5. A complete file
+
+```bash
+# Database — omit both lines to run in memory
+MONGODB_URI="mongodb+srv://djuser:YourPassword@cluster0.ab1cd.mongodb.net/dj_in?retryWrites=true&w=majority"
+MONGODB_DB=dj_in
+
+# Admin panel lock — leave empty for an open local demo
+ADMIN_KEY=
+
+# Music providers — iTunes always works without a key
+YOUTUBE_API_KEY=
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
+```
+
+### 6. Deploying
+
+Do **not** upload `.env.local`. On Vercel, add each variable under
+**Project → Settings → Environment Variables** and redeploy — the build only
+picks up new values on a fresh deploy. Same idea on any other host: set them as
+real environment variables in the platform's dashboard.
+
+### Variable reference
 
 | Variable | Effect |
 | --- | --- |
@@ -102,7 +216,17 @@ BASE=http://localhost:3000 npm run e2e
 | `YOUTUBE_API_KEY` | Enables YouTube search and full-length playback through the IFrame player. |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Enables Spotify metadata search; playable only where a `preview_url` still exists. |
 
-The `tracks` collection is seeded automatically on first read.
+### If something doesn't take
+
+- **Still says "In-memory"** — the URI is wrong, the password wasn't substituted,
+  or your IP isn't allowed in Network Access. The server log prints the driver's
+  connection error.
+- **Changes ignored** — the file is named `.env` instead of `.env.local`, sits
+  outside the project root, or the dev server wasn't restarted.
+- **Password has `@`, `:`, `/` or `?`** — URL-encode it (`@` → `%40`), or reset
+  it to something alphanumeric.
+- **Admin writes return 401** — `ADMIN_KEY` is set on the server but the key
+  typed into the panel doesn't match.
 
 ### A note on the seeded catalogue
 

@@ -130,7 +130,23 @@ export function ShowProvider({ children }) {
     []
   );
   const resetScene = useCallback(() => setScene(defaultSceneFor(themeId)), [themeId]);
-  const pulseBlinder = useCallback(() => rigRef.current?.pulseBlinder(), []);
+
+  /**
+   * Momentary blinder. Patches the fixture in if the current theme had it out,
+   * otherwise the button would be a dead control with nothing to show for it.
+   */
+  const pulseBlinder = useCallback(() => {
+    let patchedIn = false;
+    setScene((s) => {
+      if (s.fixtures.blinder) return s;
+      patchedIn = true;
+      return { ...s, fixtures: { ...s.fixtures, blinder: true } };
+    });
+    rigRef.current?.pulseBlinder(true);
+    if (patchedIn) notify('Blinders were patched out — switched them on for you.');
+  }, [notify]);
+
+  const releaseBlinder = useCallback(() => rigRef.current?.releaseBlinder(), []);
 
   /* ------------------------------------------------------------- queue */
 
@@ -286,6 +302,7 @@ export function ShowProvider({ children }) {
     toggleFixture,
     resetScene,
     pulseBlinder,
+    releaseBlinder,
     rigRef,
     engineRef,
     tracks,

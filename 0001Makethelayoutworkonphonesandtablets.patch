@@ -1,0 +1,841 @@
+From 1683198693e46a0fb5394a76aa05a1959477ba42 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 14 Aug 2026 14:34:28 +0000
+Subject: [PATCH] Make the layout work on phones and tablets
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Measured across 320-1024px. The page never scrolled sideways, but several
+things were unusable on touch:
+
+- Panels and the light desk scrolled inside themselves, so the page had
+  nested scroll regions on touch. Inner scrolling is now desktop-only; on
+  small screens panels grow and the page scrolls.
+- Queue reordering was impossible: HTML5 drag doesn't fire on touch. Small
+  screens now get move buttons; the drag handle stays on desktop.
+- The queue's remove button only appeared on hover, so it was invisible on
+  touch.
+- Faders were 26px tall and segmented buttons 27px. A pointer:coarse block
+  now sizes faders, switches, segments and buttons for fingers. It lives at
+  the end of the stylesheet — placed earlier, the base rules outranked it.
+- Grid items default to min-width:auto, so nowrap content pushed panels up
+  to 337px inside a 288px track at 320px wide. Panels and segment buttons
+  can now shrink.
+- The stage header collided with the control panel button, and hero text sat
+  unreadable over the bright rig. Header scales down, and gradient scrims
+  sit behind the text.
+- The rig was laid out for landscape: fixture apertures, pools and the booth
+  scaled off raw height, so they ballooned on tall screens. Hardware now
+  scales off min(h, w*0.62) and the arch fits the width.
+- The admin page overflowed 165px on a phone; track rows wrap their actions
+  and form fields stack.
+
+Adds scripts/e2e-mobile.mjs covering the touch paths the desktop suite
+cannot reach.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_018JjAD7WNZmP26cnkvFDZws
+---
+ app/admin/page.js          | 26 +++++------
+ app/globals.css            | 52 +++++++++++++++++++++
+ app/page.js                | 50 +++++++++++---------
+ components/LyricsPanel.jsx |  4 +-
+ components/QueuePanel.jsx  | 37 ++++++++++++---
+ components/SearchPanel.jsx |  8 ++--
+ components/ui.jsx          |  2 +-
+ lib/lightEngine.js         | 69 +++++++++++++++-------------
+ package.json               |  3 +-
+ scripts/e2e-mobile.mjs     | 94 ++++++++++++++++++++++++++++++++++++++
+ tailwind.config.js         |  4 ++
+ 11 files changed, 269 insertions(+), 80 deletions(-)
+ create mode 100644 scripts/e2e-mobile.mjs
+
+diff --git a/app/admin/page.js b/app/admin/page.js
+index 5956b3c..0542a71 100644
+--- a/app/admin/page.js
++++ b/app/admin/page.js
+@@ -111,8 +111,8 @@ export default function AdminPage() {
+   };
+ 
+   return (
+-    <div className="min-h-dvh bg-ink">
+-      <header className="border-b border-white/10 px-5 py-4 flex flex-wrap items-center gap-3 justify-between">
++    <div className="min-h-dvh bg-ink overflow-x-hidden">
++      <header className="border-b border-white/10 px-4 sm:px-5 py-4 flex flex-wrap items-center gap-3 justify-between">
+         <div>
+           <h1 className="text-lg font-bold">
+             Control panel <span className="text-white/30 font-normal text-sm">· pre-injected music & lyrics</span>
+@@ -141,7 +141,7 @@ export default function AdminPage() {
+         </div>
+       </header>
+ 
+-      <div className="max-w-6xl mx-auto p-5 space-y-5">
++      <div className="max-w-6xl mx-auto p-4 sm:p-5 space-y-5">
+         {status ? <div className="panel px-4 py-2 text-sm text-white/80">{status}</div> : null}
+ 
+         <div className="flex flex-wrap gap-2">
+@@ -158,7 +158,7 @@ export default function AdminPage() {
+           ))}
+         </div>
+ 
+-        <div className="grid gap-5 lg:grid-cols-2">
++        <div className="grid gap-5 lg:grid-cols-2 min-w-0">
+           <TrackList
+             tracks={tracks}
+             busy={busy}
+@@ -179,7 +179,7 @@ export default function AdminPage() {
+             }}
+           />
+ 
+-          <div className="space-y-5">
++          <div className="space-y-5 min-w-0">
+             <SearchAdd providers={meta.providers} onAdd={addTrack} />
+             <ManualAdd onAdd={addTrack} />
+             <ShowSettings meta={meta} onSave={async (patch) => {
+@@ -213,11 +213,11 @@ export default function AdminPage() {
+ 
+ function TrackList({ tracks, onMove, onRemove, onEdit, onResolve, busy }) {
+   return (
+-    <section className="panel p-4">
++    <section className="panel p-4 min-w-0">
+       <h2 className="text-[11px] tracking-[0.2em] uppercase text-white/45 mb-3">Playlist · {tracks.length} tracks</h2>
+       <ol className="space-y-1.5">
+         {tracks.map((t, i) => (
+-          <li key={t.id} className="panel-tight p-2.5 flex items-center gap-3">
++          <li key={t.id} className="panel-tight p-2.5 flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+             <span className="flex flex-col">
+               <button type="button" className="text-white/40 hover:text-white leading-none" onClick={() => onMove(i, i - 1)} aria-label="Move up">
+                 ▲
+@@ -234,7 +234,7 @@ function TrackList({ tracks, onMove, onRemove, onEdit, onResolve, busy }) {
+                 i + 1
+               )}
+             </span>
+-            <span className="min-w-0 flex-1">
++            <span className="min-w-0 flex-1 basis-40">
+               <span className="block text-sm truncate">{t.title}</span>
+               <span className="block text-[11px] text-white/40 truncate">
+                 {t.artist} · {t.source}
+@@ -289,7 +289,7 @@ function SearchAdd({ providers, onAdd }) {
+   }, [q, provider]);
+ 
+   return (
+-    <section className="panel p-4">
++    <section className="panel p-4 min-w-0">
+       <h2 className="text-[11px] tracking-[0.2em] uppercase text-white/45 mb-3">Add from search</h2>
+       <div className="flex gap-2">
+         <input
+@@ -351,9 +351,9 @@ function ManualAdd({ onAdd }) {
+   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+ 
+   return (
+-    <section className="panel p-4">
++    <section className="panel p-4 min-w-0">
+       <h2 className="text-[11px] tracking-[0.2em] uppercase text-white/45 mb-3">Add manually</h2>
+-      <div className="grid grid-cols-2 gap-2">
++      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+         <Input label="Title" value={form.title} onChange={set('title')} />
+         <Input label="Artist" value={form.artist} onChange={set('artist')} />
+         <label className="text-[11px] text-white/45">
+@@ -396,9 +396,9 @@ function ShowSettings({ meta, onSave }) {
+   }, [meta.crowdSize, meta.showName]);
+ 
+   return (
+-    <section className="panel p-4">
++    <section className="panel p-4 min-w-0">
+       <h2 className="text-[11px] tracking-[0.2em] uppercase text-white/45 mb-3">Show details</h2>
+-      <div className="grid grid-cols-2 gap-2">
++      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+         <Input label="Show name" value={showName} onChange={(e) => setShowName(e.target.value)} />
+         <Input label="Guests / customers" type="number" value={crowdSize} onChange={(e) => setCrowd(e.target.value)} />
+       </div>
+diff --git a/app/globals.css b/app/globals.css
+index ec1caaa..5986e00 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -202,6 +202,7 @@ body {
+ 
+ .seg button {
+   flex: 1;
++  min-width: 0;
+   padding: 5px 8px;
+   font-size: 11px;
+   letter-spacing: 0.05em;
+@@ -282,3 +283,54 @@ body {
+     transition: none;
+   }
+ }
++
++/* Touch devices get a bigger grab area and thumb — 26px is a mouse target. */
++@media (pointer: coarse) {
++  .fader {
++    height: 44px;
++  }
++
++  .fader::-webkit-slider-runnable-track,
++  .fader::-moz-range-track {
++    height: 8px;
++  }
++
++  .fader::-webkit-slider-thumb {
++    width: 22px;
++    height: 30px;
++    margin-top: -11px;
++  }
++
++  .fader::-moz-range-thumb {
++    width: 22px;
++    height: 30px;
++  }
++
++  .seg button {
++    padding: 9px 10px;
++    font-size: 12px;
++  }
++
++  .switch {
++    width: 50px;
++    height: 28px;
++  }
++
++  .switch span {
++    width: 22px;
++    height: 22px;
++  }
++
++  .switch[data-on='true'] span {
++    transform: translateX(22px);
++  }
++
++  .btn {
++    padding: 10px 16px;
++  }
++
++  /* Queue rows are drag handles; stop the browser hijacking the gesture. */
++  .queue-item {
++    touch-action: pan-y;
++  }
++}
+diff --git a/app/page.js b/app/page.js
+index 5ba256c..836ce27 100644
+--- a/app/page.js
++++ b/app/page.js
+@@ -91,7 +91,7 @@ function SideNav({ active }) {
+           key={s.id}
+           href={`#${s.id}`}
+           title={s.label}
+-          className="group flex items-center gap-2 justify-end"
++          className="group flex items-center gap-2 justify-end py-2 pl-2"
+           onClick={(e) => {
+             e.preventDefault();
+             document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth' });
+@@ -120,31 +120,37 @@ function StageSection() {
+   const { theme, toggle, playerState, current, meta } = useShow();
+   return (
+     <section id="stage" className="snap-section relative flex flex-col">
+-      <header className="flex items-start justify-between gap-4 p-5 md:p-7">
+-        <div>
+-          <h1 className="text-2xl md:text-4xl font-black tracking-tight leading-none">
++      {/* Legibility scrim: the rig behind this text is bright and moving. */}
++      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/80 to-transparent" />
++      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
++
++      <header className="relative flex items-start justify-between gap-3 p-4 sm:p-5 md:p-7">
++        <div className="min-w-0">
++          <h1 className="text-xl sm:text-2xl md:text-4xl font-black tracking-tight leading-none">
+             DJ <span style={{ color: theme.accent }}>RAMP</span>
+           </h1>
+-          <p className="text-[11px] md:text-xs text-white/45 mt-1 tracking-[0.18em] uppercase">
+-            Deluxe salon lighting desk · made by Priyanshu Raj
++          <p className="text-[9px] sm:text-[11px] md:text-xs text-white/50 mt-1 tracking-[0.14em] sm:tracking-[0.18em] uppercase">
++            Deluxe salon lighting desk
++            <span className="hidden xs:inline"> · made by Priyanshu Raj</span>
+           </p>
++          <p className="xs:hidden text-[9px] text-white/50 tracking-[0.14em] uppercase">Made by Priyanshu Raj</p>
+         </div>
+-        <div className="flex items-center gap-2">
++        <div className="flex items-center gap-2 flex-none">
+           <span className="hidden md:inline text-[10px] text-white/35 tracking-[0.18em] uppercase">
+             {meta.visitors.toLocaleString()} visitors
+           </span>
+-          <Link href="/admin" className="btn !text-[11px]">
++          <Link href="/admin" className="btn !text-[10px] sm:!text-[11px] whitespace-nowrap">
+             Control panel
+           </Link>
+         </div>
+       </header>
+ 
+-      <div className="flex-1 flex items-end md:items-center">
+-        <div className="p-5 md:p-7 w-full max-w-md">
++      <div className="relative flex-1 flex items-end md:items-center">
++        <div className="p-4 sm:p-5 md:p-7 w-full max-w-md">
+           <ThemeSelect />
+-          <p className="mt-3 text-sm text-white/50 leading-relaxed">{theme.tagline}</p>
++          <p className="mt-3 text-[13px] sm:text-sm text-white/60 leading-relaxed">{theme.tagline}</p>
+ 
+-          <div className="mt-5 flex items-center gap-3">
++          <div className="mt-4 sm:mt-5 flex flex-wrap items-center gap-3">
+             <button
+               type="button"
+               onClick={toggle}
+@@ -153,15 +159,17 @@ function StageSection() {
+             >
+               {playerState.playing ? 'Pause the set' : 'Start the set'}
+             </button>
+-            <div className="min-w-0">
+-              <p className="text-[11px] text-white/35 uppercase tracking-[0.18em]">Now on the deck</p>
+-              <p className="text-sm truncate">{current ? `${current.title} — ${current.artist}` : 'Nothing loaded yet'}</p>
++            <div className="min-w-0 flex-1">
++              <p className="text-[10px] sm:text-[11px] text-white/40 uppercase tracking-[0.18em]">Now on the deck</p>
++              <p className="text-[13px] sm:text-sm truncate">
++                {current ? `${current.title} — ${current.artist}` : 'Nothing loaded yet'}
++              </p>
+             </div>
+           </div>
+         </div>
+       </div>
+ 
+-      <div className="px-5 md:px-7 pt-5 pb-20 text-[10px] tracking-[0.24em] uppercase text-white/30">
++      <div className="relative px-4 sm:px-5 md:px-7 pt-4 pb-24 text-[10px] tracking-[0.24em] uppercase text-white/35">
+         Scroll for the light desk ↓
+       </div>
+     </section>
+@@ -177,7 +185,7 @@ function DeskSection() {
+           title="Patch it, move it, blind them"
+           note="Every fader is DMX-ish: it changes the rig behind this panel in real time."
+         />
+-        <div className="flex-1 min-h-0 overflow-y-auto scroll-thin -mx-1 px-1">
++        <div className="flex-1 lg:min-h-0 lg:overflow-y-auto scroll-thin -mx-1 px-1">
+           <ControlDesk />
+         </div>
+       </div>
+@@ -192,9 +200,9 @@ function DeckSection() {
+         <SectionHead
+           kicker="Music system"
+           title="Deck, queue and search"
+-          note="Drag the queue to re-order it. Search adds anything you find to the same queue."
++          note="Re-order the queue by dragging it, or with the arrows on touch. Search adds anything you find to the same queue."
+         />
+-        <div className="grid gap-4 lg:grid-cols-3 flex-1 min-h-0 max-lg:auto-rows-[minmax(320px,auto)]">
++        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 flex-1 lg:min-h-0">
+           <PlayerDeck />
+           <QueuePanel />
+           <SearchPanel />
+@@ -210,7 +218,7 @@ function LyricsSection() {
+     <section id="lyrics" className="snap-section relative bg-black/65 backdrop-blur-sm flex flex-col">
+       <div className="w-full max-w-7xl mx-auto px-4 md:px-7 pt-6 pb-4 lg:h-dvh flex flex-col">
+         <SectionHead kicker="Sing along" title="Lyrics, timed to the track" note="Tap any line to jump the playhead there." />
+-        <div className="grid gap-4 lg:grid-cols-3 flex-1 min-h-0 max-lg:auto-rows-[minmax(320px,auto)]">
++        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 flex-1 lg:min-h-0">
+           <div className="lg:col-span-2 min-h-[280px]">
+             <LyricsPanel />
+           </div>
+@@ -222,7 +230,7 @@ function LyricsSection() {
+             Made by <span style={{ color: theme.accent }}>Priyanshu Raj</span> · DJ Ramp light desk
+           </span>
+           <span className="flex items-center gap-4">
+-            <Link href="/admin" className="hover:text-white/70 transition">
++            <Link href="/admin" className="inline-block py-2 hover:text-white/70 transition">
+               Control panel
+             </Link>
+             <span>Next.js · MongoDB Atlas · Web Audio</span>
+diff --git a/components/LyricsPanel.jsx b/components/LyricsPanel.jsx
+index 0807c4f..d89cfe9 100644
+--- a/components/LyricsPanel.jsx
++++ b/components/LyricsPanel.jsx
+@@ -35,7 +35,7 @@ export default function LyricsPanel() {
+   }, [activeIndex]);
+ 
+   return (
+-    <Panel className="h-full flex flex-col min-h-0" title="Lyrics">
++    <Panel className="h-full flex flex-col lg:min-h-0" title="Lyrics">
+       {lines.length === 0 ? (
+         <div className="flex-1 grid place-items-center text-center px-6">
+           <div>
+@@ -46,7 +46,7 @@ export default function LyricsPanel() {
+           </div>
+         </div>
+       ) : (
+-        <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto scroll-thin py-6">
++        <div ref={listRef} className="flex-1 lg:min-h-0 max-lg:max-h-[70vh] overflow-y-auto scroll-thin py-6">
+           {lines.map((line, i) => {
+             const active = i === activeIndex;
+             const passed = i < activeIndex;
+diff --git a/components/QueuePanel.jsx b/components/QueuePanel.jsx
+index a7e6bd4..ebd1a72 100644
+--- a/components/QueuePanel.jsx
++++ b/components/QueuePanel.jsx
+@@ -24,20 +24,20 @@ export default function QueuePanel() {
+ 
+   return (
+     <Panel
+-      className="h-full flex flex-col min-h-0"
++      className="h-full flex flex-col lg:min-h-0"
+       title={`Queue · ${queue.length}`}
+       right={
+         <div className="flex gap-1">
+-          <button type="button" className="btn !py-1 !px-2 !text-[10px]" onClick={restoreThemeQueue}>
++          <button type="button" className="btn !py-2 !px-3 lg:!py-1 lg:!px-2 !text-[10px]" onClick={restoreThemeQueue}>
+             Reload list
+           </button>
+-          <button type="button" className="btn !py-1 !px-2 !text-[10px]" onClick={clearQueue}>
++          <button type="button" className="btn !py-2 !px-3 lg:!py-1 lg:!px-2 !text-[10px]" onClick={clearQueue}>
+             Clear
+           </button>
+         </div>
+       }
+     >
+-      <ol className="flex-1 min-h-0 overflow-y-auto scroll-thin -mx-2 px-2 space-y-1">
++      <ol className="flex-1 lg:min-h-0 lg:overflow-y-auto scroll-thin -mx-2 px-2 space-y-1">
+         {queue.length === 0 ? (
+           <li className="text-sm text-white/35 py-8 text-center">
+             Queue is empty. Reload the category list or search for a track.
+@@ -75,7 +75,32 @@ export default function QueuePanel() {
+                 active ? 'bg-white/10 border-white/15' : 'border-transparent hover:bg-white/5'
+               }`}
+             >
+-              <span className="cursor-grab active:cursor-grabbing text-white/25 hover:text-white/60 px-1" title="Drag to reorder">
++              {/* Touch has no HTML5 drag, so small screens get move buttons instead. */}
++              <span className="flex flex-col lg:hidden">
++                <button
++                  type="button"
++                  aria-label={`Move ${track.title} up`}
++                  disabled={i === 0}
++                  className="px-2.5 min-h-[32px] leading-none text-white/45 disabled:opacity-20 active:text-white"
++                  onClick={() => moveInQueue(i, i - 1)}
++                >
++                  ▲
++                </button>
++                <button
++                  type="button"
++                  aria-label={`Move ${track.title} down`}
++                  disabled={i === queue.length - 1}
++                  className="px-2.5 min-h-[32px] leading-none text-white/45 disabled:opacity-20 active:text-white"
++                  onClick={() => moveInQueue(i, i + 1)}
++                >
++                  ▼
++                </button>
++              </span>
++
++              <span
++                className="hidden lg:block cursor-grab active:cursor-grabbing text-white/25 hover:text-white/60 px-1"
++                title="Drag to reorder"
++              >
+                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                   <circle cx="9" cy="6" r="1.6" />
+                   <circle cx="15" cy="6" r="1.6" />
+@@ -111,7 +136,7 @@ export default function QueuePanel() {
+               <button
+                 type="button"
+                 aria-label={`Remove ${track.title}`}
+-                className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-white/40 hover:text-white px-1 transition"
++                className="lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 text-white/40 hover:text-white px-3 py-2 min-w-[40px] lg:min-w-0 lg:px-1 transition"
+                 onClick={() => removeFromQueue(track.uid)}
+               >
+                 ✕
+diff --git a/components/SearchPanel.jsx b/components/SearchPanel.jsx
+index bbe81a5..bfdf884 100644
+--- a/components/SearchPanel.jsx
++++ b/components/SearchPanel.jsx
+@@ -59,7 +59,7 @@ export default function SearchPanel() {
+   });
+ 
+   return (
+-    <Panel className="h-full flex flex-col min-h-0" title="Search music">
++    <Panel className="h-full flex flex-col lg:min-h-0" title="Search music">
+       <div className="flex gap-2 mb-3">
+         <input
+           value={q}
+@@ -87,7 +87,7 @@ export default function SearchPanel() {
+       {busy ? <p className="text-[11px] text-white/40 mb-2">Searching…</p> : null}
+       {error && !busy ? <p className="text-[11px] text-amber-300/70 mb-2">{error}</p> : null}
+ 
+-      <ul className="flex-1 min-h-0 overflow-y-auto scroll-thin -mx-2 px-2 space-y-1">
++      <ul className="flex-1 lg:min-h-0 lg:overflow-y-auto scroll-thin -mx-2 px-2 space-y-1">
+         {results.map((r) => (
+           <li key={`${r.source}-${r.sourceId}`} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/5 transition">
+             <span className="w-9 h-9 rounded-md overflow-hidden flex-none bg-white/5 border border-white/10">
+@@ -104,12 +104,12 @@ export default function SearchPanel() {
+               <span className="text-[10px] text-white/30">no preview</span>
+             ) : (
+               <>
+-                <button type="button" className="btn !py-1 !px-2 !text-[10px]" onClick={() => enqueue(asTrack(r))}>
++                <button type="button" className="btn !py-2 !px-3 lg:!py-1 lg:!px-2 !text-[10px]" onClick={() => enqueue(asTrack(r))}>
+                   Queue
+                 </button>
+                 <button
+                   type="button"
+-                  className="btn btn-accent !py-1 !px-2 !text-[10px]"
++                  className="btn btn-accent !py-2 !px-3 lg:!py-1 lg:!px-2 !text-[10px]"
+                   onClick={() => playTrack(asTrack(r))}
+                 >
+                   Play
+diff --git a/components/ui.jsx b/components/ui.jsx
+index 5d49ca0..5fe6443 100644
+--- a/components/ui.jsx
++++ b/components/ui.jsx
+@@ -73,7 +73,7 @@ export function Segmented({ label, options, value, onChange, name }) {
+ 
+ export function Panel({ title, right, children, className = '' }) {
+   return (
+-    <section className={`panel relative p-4 ${className}`}>
++    <section className={`panel relative p-4 min-w-0 ${className}`}>
+       {title ? (
+         <header className="flex items-center justify-between mb-3">
+           <h3 className="text-[11px] tracking-[0.2em] uppercase text-white/45">{title}</h3>
+diff --git a/lib/lightEngine.js b/lib/lightEngine.js
+index 9d4dab6..2608578 100644
+--- a/lib/lightEngine.js
++++ b/lib/lightEngine.js
+@@ -74,8 +74,13 @@ function mulberry(seed) {
+ /* ---------------------------------------------------------------- geometry */
+ 
+ function buildLayout(w, h) {
+-  const trussY = h * 0.085;
+-  const wallBottom = h * 0.63;
++  // Fixture hardware is sized off `s`, not the raw height: on a tall phone the
++  // stage is narrow, and scaling lenses and pools by height alone blows them up.
++  const s = Math.min(h, w * 0.62);
++  const portrait = w / h < 1.05;
++
++  const trussY = h * (portrait ? 0.07 : 0.085);
++  const wallBottom = h * (portrait ? 0.56 : 0.63);
+   const heads = [];
+   const xs = [0.11, 0.255, 0.4, 0.6, 0.745, 0.89];
+   const roles = ['beam', 'wash', 'spot', 'spot', 'wash', 'beam'];
+@@ -83,7 +88,7 @@ function buildLayout(w, h) {
+     heads.push({ x: x * w, y: trussY + h * 0.028, role: roles[i], i });
+   });
+ 
+-  const arch = { cx: w * 0.5, cy: wallBottom + h * 0.02, r: h * 0.5 };
++  const arch = { cx: w * 0.5, cy: wallBottom + h * 0.02, r: Math.min(h * 0.5, w * 0.54) };
+   const pars = [];
+   const parCount = 11;
+   for (let i = 0; i < parCount; i++) {
+@@ -145,7 +150,7 @@ function buildLayout(w, h) {
+     });
+   }
+ 
+-  return { w, h, trussY, wallBottom, heads, arch, pars, classicPars, blinders, strobes, lasers, crowd, fog };
++  return { w, h, s, portrait, trussY, wallBottom, heads, arch, pars, classicPars, blinders, strobes, lasers, crowd, fog };
+ }
+ 
+ /* ------------------------------------------------------------ beat clock */
+@@ -407,13 +412,13 @@ export class Rig {
+       ctx.beginPath();
+       ctx.arc(arch.cx, arch.cy, rad, Math.PI, TAU);
+       ctx.strokeStyle = rgba(c, a);
+-      ctx.lineWidth = Math.max(2, L.h * 0.006);
++      ctx.lineWidth = Math.max(2, L.s * 0.006);
+       ctx.stroke();
+ 
+       ctx.beginPath();
+       ctx.arc(arch.cx, arch.cy, rad, Math.PI, TAU);
+       ctx.strokeStyle = rgba(c, a * 0.35);
+-      ctx.lineWidth = Math.max(6, L.h * 0.022);
++      ctx.lineWidth = Math.max(6, L.s * 0.022);
+       ctx.stroke();
+     }
+ 
+@@ -422,9 +427,9 @@ export class Rig {
+       const c = pickColor(theme, scene.colorMode, p.i, t, this.clock.bar);
+       const chase = 0.5 + 0.5 * Math.sin(t * (1 + scene.speed / 60) - p.i * 0.55);
+       const a = master * (0.08 + chase * 0.3) * (0.7 + kick * 0.6);
+-      drawPool(ctx, p.x, p.y, L.h * 0.1, L.h * 0.1, c, a);
++      drawPool(ctx, p.x, p.y, L.s * 0.1, L.s * 0.1, c, a);
+       ctx.beginPath();
+-      ctx.arc(p.x, p.y, Math.max(2.5, L.h * 0.007), 0, TAU);
++      ctx.arc(p.x, p.y, Math.max(2.5, L.s * 0.007), 0, TAU);
+       ctx.fillStyle = rgba(c, clamp(a * 3, 0, 0.95));
+       ctx.fill();
+     });
+@@ -436,8 +441,8 @@ export class Rig {
+       const breathe = 0.55 + 0.45 * Math.sin(t * 0.35 + p.i * 1.3);
+       const a = master * (0.12 + breathe * 0.2) * haze;
+       const angle = (p.x < L.w / 2 ? 1 : -1) * (0.55 + 0.1 * Math.sin(t * 0.2 + p.i));
+-      drawBeam(ctx, p, Math.PI - angle, L.h * 0.62, L.h * 0.012, L.h * 0.16, warm, a, 0.85);
+-      drawPool(ctx, p.x, p.y, L.h * 0.06, L.h * 0.03, warm, master * breathe * 0.5);
++      drawBeam(ctx, p, Math.PI - angle, L.h * 0.62, L.s * 0.012, L.s * 0.16, warm, a, 0.85);
++      drawPool(ctx, p.x, p.y, L.s * 0.06, L.s * 0.03, warm, master * breathe * 0.5);
+     });
+   }
+ 
+@@ -459,31 +464,31 @@ export class Rig {
+ 
+       let spreadEnd, alpha, softness;
+       if (role === 'beam') {
+-        spreadEnd = L.h * (0.008 + widthK * 0.012);
++        spreadEnd = L.s * (0.008 + widthK * 0.012);
+         alpha = master * haze * (0.5 + kick * 0.5) * 0.55;
+         softness = 0.1;
+       } else if (role === 'spot') {
+-        spreadEnd = L.h * (0.03 + widthK * 0.05);
++        spreadEnd = L.s * (0.03 + widthK * 0.05);
+         alpha = master * haze * (0.45 + kick * 0.35) * 0.4;
+         softness = 0.35;
+       } else {
+-        spreadEnd = L.h * (0.1 + widthK * 0.16);
++        spreadEnd = L.s * (0.1 + widthK * 0.16);
+         alpha = master * haze * (0.4 + kick * 0.2) * 0.22;
+         softness = 0.95;
+       }
+ 
+       // drawBeam takes the angle from straight down, so `pan` maps directly.
+-      const { ex, ey } = drawBeam(ctx, head, angle * 1.15, len, L.h * 0.006, spreadEnd, c, alpha, softness);
++      const { ex, ey } = drawBeam(ctx, head, angle * 1.15, len, L.s * 0.006, spreadEnd, c, alpha, softness);
+ 
+       // Floor pool where the beam lands.
+-      if (ey > L.wallBottom - L.h * 0.05) {
++      if (ey > L.wallBottom - L.s * 0.05) {
+         const rx = spreadEnd * 1.7;
+         drawPool(ctx, ex, Math.min(ey, L.h * 0.98), rx, rx * 0.38, c, master * (role === 'wash' ? 0.35 : 0.6));
+         if (role === 'spot') this.#gobo(ctx, ex, Math.min(ey, L.h * 0.98), rx, c, master, t, head.i);
+       }
+ 
+       // Lens glow at the fixture head.
+-      drawPool(ctx, head.x, head.y, L.h * 0.035, L.h * 0.035, c, master * 0.5);
++      drawPool(ctx, head.x, head.y, L.s * 0.035, L.s * 0.035, c, master * 0.5);
+     });
+   }
+ 
+@@ -509,7 +514,7 @@ export class Rig {
+         ? Math.sin(t * rate * 1.6) * 0.35
+         : Math.sin(t * rate * (scene.direction === 'ccw' ? -1 : 1)) * 0.3;
+     const fan = 0.7 + 0.4 * Math.sin(t * 0.8);
+-    const len = L.w * 0.72;
++    const len = Math.max(L.w * 0.72, L.h * 0.5);
+ 
+     L.lasers.forEach((em) => {
+       const baseHue = scene.colorMode === 'rainbow' ? (t * 60 + em.i * 120) % 360 : null;
+@@ -533,7 +538,7 @@ export class Rig {
+         ctx.moveTo(em.x, em.y);
+         ctx.lineTo(ex, ey);
+         ctx.strokeStyle = rgba(c, alpha);
+-        ctx.lineWidth = Math.max(2.5, L.h * 0.005);
++        ctx.lineWidth = Math.max(2.5, L.s * 0.005);
+         ctx.stroke();
+ 
+         ctx.beginPath();
+@@ -543,7 +548,7 @@ export class Rig {
+         ctx.lineWidth = 1;
+         ctx.stroke();
+       }
+-      drawPool(ctx, em.x, em.y, L.h * 0.05, L.h * 0.05, [255, 255, 255], master * 0.3);
++      drawPool(ctx, em.x, em.y, L.s * 0.05, L.s * 0.05, [255, 255, 255], master * 0.3);
+     });
+   }
+ 
+@@ -563,8 +568,8 @@ export class Rig {
+     L.blinders.forEach((b) => {
+       drawPool(ctx, b.x, b.y + L.h * 0.12, L.w * 0.5, L.h * 0.85, c, master * env * 0.75);
+       for (let cell = 0; cell < 4; cell++) {
+-        const cx = b.x + (cell - 1.5) * L.w * 0.018;
+-        drawPool(ctx, cx, b.y, L.h * 0.045, L.h * 0.045, c, master * env);
++        const cx = b.x + (cell - 1.5) * L.s * 0.028;
++        drawPool(ctx, cx, b.y, L.s * 0.045, L.s * 0.045, c, master * env);
+       }
+     });
+   }
+@@ -578,7 +583,7 @@ export class Rig {
+     const a = master * 0.34 * (0.6 + scene.strobeRate / 200);
+     ctx.fillStyle = rgba([255, 255, 255], a);
+     ctx.fillRect(0, 0, L.w, L.h);
+-    L.strobes.forEach((s) => drawPool(ctx, s.x, s.y, L.h * 0.06, L.h * 0.06, [255, 255, 255], master));
++    L.strobes.forEach((s) => drawPool(ctx, s.x, s.y, L.s * 0.06, L.s * 0.06, [255, 255, 255], master));
+   }
+ 
+   /* --------------------------------------------------------- hardware */
+@@ -586,7 +591,7 @@ export class Rig {
+   #structure(ctx, L, theme, scene, master) {
+     const { w, h } = L;
+     const barY = L.trussY;
+-    const th = Math.max(4, h * 0.016);
++    const th = Math.max(4, L.s * 0.016);
+ 
+     // Truss: two chords with zig-zag bracing.
+     ctx.strokeStyle = 'rgba(150,160,180,0.5)';
+@@ -616,8 +621,8 @@ export class Rig {
+       ...L.strobes.map((p) => ({ ...p, kind: 'strobe' })),
+     ];
+     bodies.forEach((p) => {
+-      const bw = p.kind === 'blinder' ? h * 0.055 : h * 0.026;
+-      const bh = h * 0.03;
++      const bw = p.kind === 'blinder' ? L.s * 0.055 : L.s * 0.026;
++      const bh = L.s * 0.03;
+       ctx.fillStyle = 'rgba(10,12,18,0.95)';
+       ctx.strokeStyle = 'rgba(140,150,170,0.35)';
+       ctx.lineWidth = 1;
+@@ -631,8 +636,8 @@ export class Rig {
+     // DJ booth.
+     const bx = w * 0.36;
+     const bw = w * 0.28;
+-    const by = L.wallBottom + h * 0.06;
+-    const bhh = h * 0.16;
++    const by = L.wallBottom + L.s * 0.06;
++    const bhh = L.s * 0.16;
+     ctx.fillStyle = 'rgba(8,10,16,0.96)';
+     ctx.beginPath();
+     ctx.roundRect(bx, by, bw, bhh, 6);
+@@ -643,17 +648,17 @@ export class Rig {
+     bg.addColorStop(0, rgba(c0, 0.55 * master));
+     bg.addColorStop(1, rgba(c1, 0.55 * master));
+     ctx.fillStyle = bg;
+-    ctx.fillRect(bx + 4, by + 4, bw - 8, h * 0.012);
++    ctx.fillRect(bx + 4, by + 4, bw - 8, L.s * 0.012);
+     ctx.fillStyle = 'rgba(255,255,255,0.08)';
+-    ctx.fillRect(bx + 4, by + bhh - h * 0.02, bw - 8, h * 0.006);
++    ctx.fillRect(bx + 4, by + bhh - L.s * 0.02, bw - 8, L.s * 0.006);
+ 
+     // DJ silhouette behind the booth.
+     ctx.fillStyle = 'rgba(4,5,9,0.95)';
+     ctx.beginPath();
+-    ctx.arc(w * 0.5, by - h * 0.035, h * 0.026, 0, TAU);
++    ctx.arc(w * 0.5, by - L.s * 0.035, L.s * 0.026, 0, TAU);
+     ctx.fill();
+     ctx.beginPath();
+-    ctx.roundRect(w * 0.5 - h * 0.05, by - h * 0.012, h * 0.1, h * 0.05, 6);
++    ctx.roundRect(w * 0.5 - L.s * 0.05, by - L.s * 0.012, L.s * 0.1, L.s * 0.05, 6);
+     ctx.fill();
+   }
+ 
+@@ -664,7 +669,7 @@ export class Rig {
+     L.crowd.slice(0, shown).forEach((p) => {
+       const bob = Math.sin(t * 3.2 + p.phase) * 3 + kick * 6;
+       const y = p.base - bob;
+-      const s = p.scale * L.h * 0.05;
++      const s = p.scale * L.s * 0.055;
+       ctx.fillStyle = `rgba(2,3,6,${0.72 + p.depth * 0.08})`;
+       ctx.beginPath();
+       ctx.arc(p.x, y, s * 0.32, 0, TAU);
+diff --git a/package.json b/package.json
+index 8c57bb8..9815910 100644
+--- a/package.json
++++ b/package.json
+@@ -8,7 +8,8 @@
+     "build": "next build",
+     "start": "next start",
+     "lint": "next lint",
+-    "e2e": "node scripts/e2e.mjs"
++    "e2e": "node scripts/e2e.mjs",
++    "e2e:mobile": "node scripts/e2e-mobile.mjs"
+   },
+   "dependencies": {
+     "mongodb": "^6.12.0",
+diff --git a/scripts/e2e-mobile.mjs b/scripts/e2e-mobile.mjs
+new file mode 100644
+index 0000000..9e5d43a
+--- /dev/null
++++ b/scripts/e2e-mobile.mjs
+@@ -0,0 +1,94 @@
++import { chromium } from 'playwright';
++
++/**
++ * Touch-device checks. The desktop suite can't cover these: HTML5 drag doesn't
++ * exist on touch, and several controls only render below the lg breakpoint.
++ */
++const BASE = process.env.BASE || 'http://localhost:3000';
++const results = [];
++const check = (n, ok, extra = '') => results.push(`${ok ? 'PASS' : 'FAIL'}  ${n}${extra ? ' — ' + extra : ''}`);
++
++const browser = await chromium.launch({
++  executablePath: process.env.CHROME || undefined,
++  args: ['--autoplay-policy=no-user-gesture-required'],
++});
++const page = await browser.newPage({
++  viewport: { width: 390, height: 844 },
++  isMobile: true,
++  hasTouch: true,
++  deviceScaleFactor: 2,
++});
++const errors = [];
++page.on('pageerror', (e) => errors.push(e.message));
++
++await page.goto(BASE, { waitUntil: 'networkidle' });
++await page.waitForTimeout(1200);
++
++// No horizontal scroll anywhere on the page.
++const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
++check('no horizontal overflow', overflow === 0, `${overflow}px`);
++
++// Touch targets on the controls people actually drag.
++const faderHeight = await page.evaluate(() => {
++  const f = document.querySelector('.fader');
++  return f ? Math.round(f.getBoundingClientRect().height) : 0;
++});
++check('faders are touch-sized', faderHeight >= 40, `${faderHeight}px`);
++
++// Queue reordering without drag-and-drop.
++await page.evaluate(() => document.getElementById('deck').scrollIntoView());
++await page.waitForTimeout(700);
++const titles = () =>
++  page.$$eval('.queue-item', (els) => els.map((e) => e.innerText.split('\n').find((l) => /[A-Za-z]{3}/.test(l)) || ''));
++const before = await titles();
++await page.locator('.queue-item').nth(1).getByRole('button', { name: /Move .* up/i }).tap();
++await page.waitForTimeout(400);
++const after = await titles();
++check('queue move buttons reorder', after[0] === before[1], `${before[1]} -> slot 1`);
++
++// The remove control must be reachable without hover.
++const removeVisible = await page.evaluate(() => {
++  const btn = document.querySelector('.queue-item button[aria-label^="Remove"]');
++  return btn ? Number(getComputedStyle(btn).opacity) : 0;
++});
++check('remove button visible without hover', removeVisible > 0.5, `opacity ${removeVisible}`);
++
++// Panels must not trap scrolling in a nested region on touch.
++const trapped = await page.evaluate(() =>
++  [...document.querySelectorAll('#deck ol, #deck ul')].some((el) => {
++    const s = getComputedStyle(el);
++    return (s.overflowY === 'auto' || s.overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 4;
++  })
++);
++check('no nested scroll traps in the queue', !trapped);
++
++// Blinder still fires from a tap.
++await page.evaluate(() => document.getElementById('desk').scrollIntoView());
++await page.waitForTimeout(600);
++const sample = () =>
++  page.evaluate(() => {
++    const c = document.querySelector('canvas');
++    const d = c.getContext('2d').getImageData(c.width * 0.25, c.height * 0.4, 200, 100).data;
++    let s = 0;
++    for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2];
++    return s / (d.length / 4);
++  });
++const idle = await sample();
++const blind = page.getByRole('button', { name: 'Blind!' });
++await blind.hover();
++await page.mouse.down();
++await page.waitForTimeout(250);
++const lit = await sample();
++await page.mouse.up();
++check('blinder fires on touch', lit > idle * 1.25, `${idle.toFixed(0)} -> ${lit.toFixed(0)}`);
++
++// Admin panel fits too.
++await page.goto(`${BASE}/admin`, { waitUntil: 'networkidle' });
++await page.waitForTimeout(800);
++const adminOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
++check('admin has no horizontal overflow', adminOverflow === 0, `${adminOverflow}px`);
++
++console.log(results.join('\n'));
++console.log('\nPAGE ERRORS:', errors.length ? errors.slice(0, 5) : 'none');
++await browser.close();
++process.exit(results.some((r) => r.startsWith('FAIL')) ? 1 : 0);
+diff --git a/tailwind.config.js b/tailwind.config.js
+index f395c59..790a26c 100644
+--- a/tailwind.config.js
++++ b/tailwind.config.js
+@@ -3,6 +3,10 @@ module.exports = {
+   content: ['./app/**/*.{js,jsx}', './components/**/*.{js,jsx}', './lib/**/*.{js,jsx}'],
+   theme: {
+     extend: {
++      screens: {
++        // Narrow phones (320–374px) need their own step below Tailwind's `sm`.
++        xs: '375px',
++      },
+       fontFamily: {
+         display: ['var(--font-display)', 'system-ui', 'sans-serif'],
+       },
+-- 
+2.43.0
+
