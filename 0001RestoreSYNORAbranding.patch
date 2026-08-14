@@ -1,0 +1,74 @@
+From 39a4196f631417785bccd4afff120a9f86802754 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 14 Aug 2026 15:42:00 +0000
+Subject: [PATCH] Restore SYNORA branding
+
+The 3-way patch apply conflicted in the stage header and the resolution
+dropped this side, reverting the app name. Puts it back and carries it into
+the metadata, which never had it.
+
+- Header wordmark: SYN + ORA, the second half in the active theme accent.
+- Tagline: reactive music & lighting experience.
+- Footer credit and page metadata (title, description, Open Graph).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_018JjAD7WNZmP26cnkvFDZws
+---
+ app/layout.js | 12 ++++++++++--
+ app/page.js   |  6 +++---
+ 2 files changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/app/layout.js b/app/layout.js
+index 15c549f..a60f744 100644
+--- a/app/layout.js
++++ b/app/layout.js
+@@ -1,10 +1,18 @@
+ import './globals.css';
+ 
+ export const metadata = {
+-  title: 'DJ Ramp — Deluxe Salon Light Desk',
++  title: 'SYNORA — Reactive Music & Lighting Experience',
+   description:
+-    'A bus-salon DJ ramp: moving heads, PAR cans, lasers, strobes and fog on a live control desk, with a themed music player, queue, lyrics and search. Made by Priyanshu Raj.',
++    'A reactive music and lighting experience: moving heads, PAR cans, lasers, strobes and fog on a live control desk, with a themed music player, queue, lyrics and search. Made by Priyanshu Raj.',
+   authors: [{ name: 'Priyanshu Raj' }],
++  applicationName: 'SYNORA',
++  openGraph: {
++    title: 'SYNORA — Reactive Music & Lighting Experience',
++    description:
++      'Six themed scenes, a full stage rig you can operate, and a music deck with queue, search and timed lyrics.',
++    siteName: 'SYNORA',
++    type: 'website',
++  },
+ };
+ 
+ export const viewport = {
+diff --git a/app/page.js b/app/page.js
+index 836ce27..9ba21f0 100644
+--- a/app/page.js
++++ b/app/page.js
+@@ -127,10 +127,10 @@ function StageSection() {
+       <header className="relative flex items-start justify-between gap-3 p-4 sm:p-5 md:p-7">
+         <div className="min-w-0">
+           <h1 className="text-xl sm:text-2xl md:text-4xl font-black tracking-tight leading-none">
+-            DJ <span style={{ color: theme.accent }}>RAMP</span>
++            SYN<span style={{ color: theme.accent }}>ORA</span>
+           </h1>
+           <p className="text-[9px] sm:text-[11px] md:text-xs text-white/50 mt-1 tracking-[0.14em] sm:tracking-[0.18em] uppercase">
+-            Deluxe salon lighting desk
++            Reactive music &amp; lighting experience
+             <span className="hidden xs:inline"> · made by Priyanshu Raj</span>
+           </p>
+           <p className="xs:hidden text-[9px] text-white/50 tracking-[0.14em] uppercase">Made by Priyanshu Raj</p>
+@@ -227,7 +227,7 @@ function LyricsSection() {
+ 
+         <footer className="mt-4 mb-16 border-t border-white/10 pt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-white/35">
+           <span>
+-            Made by <span style={{ color: theme.accent }}>Priyanshu Raj</span> · DJ Ramp light desk
++            Made by <span style={{ color: theme.accent }}>Priyanshu Raj</span> · SYNORA light desk
+           </span>
+           <span className="flex items-center gap-4">
+             <Link href="/admin" className="inline-block py-2 hover:text-white/70 transition">
+-- 
+2.43.0
+

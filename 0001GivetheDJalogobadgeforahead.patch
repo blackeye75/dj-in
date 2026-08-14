@@ -1,0 +1,171 @@
+From 7097e91ad56f29ddc71588a92954004dcb0f47a1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 14 Aug 2026 16:00:52 +0000
+Subject: [PATCH] Give the DJ a logo badge for a head
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The figure behind the booth wore a plain silhouette head. It now wears the
+brand mark on a badge: dark disc, the logo inset by a padding ring so it
+never touches the edge, an accent rim that tracks the active theme, and a
+halo that breathes with the kick.
+
+The mark loads from /logo.svg (falling back to /logo.png), so replacing the
+file swaps the badge with no code change. If neither loads the rig draws the
+old plain head, so a missing asset is never a hole in the scene.
+
+public/logo.svg is a geometric stand-in for the supplied artwork — the gear
+silhouette and white centre, which is all that resolves at badge size.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_018JjAD7WNZmP26cnkvFDZws
+---
+ components/LightStage.jsx | 10 +++++++
+ lib/lightEngine.js        | 63 +++++++++++++++++++++++++++++++++++++--
+ public/logo.svg           | 19 ++++++++++++
+ 3 files changed, 89 insertions(+), 3 deletions(-)
+ create mode 100644 public/logo.svg
+
+diff --git a/components/LightStage.jsx b/components/LightStage.jsx
+index f784a3a..3090dc5 100644
+--- a/components/LightStage.jsx
++++ b/components/LightStage.jsx
+@@ -23,6 +23,16 @@ export default function LightStage({ className = '' }) {
+     const rig = new Rig(canvas);
+     rigRef.current = rig;
+ 
++    // Brand mark worn by the DJ. Drop your own file at either path to swap it;
++    // the rig draws a plain head until one loads, so a missing file is harmless.
++    const logo = new Image();
++    logo.decoding = 'async';
++    logo.onload = () => rig.setLogo(logo);
++    logo.onerror = () => {
++      if (logo.src.endsWith('.svg')) logo.src = '/logo.png';
++    };
++    logo.src = '/logo.svg';
++
+     const resize = () => {
+       const box = canvas.parentElement.getBoundingClientRect();
+       rig.resize(Math.max(320, box.width), Math.max(240, box.height));
+diff --git a/lib/lightEngine.js b/lib/lightEngine.js
+index 2608578..a235c36 100644
+--- a/lib/lightEngine.js
++++ b/lib/lightEngine.js
+@@ -268,6 +268,7 @@ export class Rig {
+     this.t = 0;
+     this.blinderPulse = -10;
+     this.blinderHold = false;
++    this.logo = null;
+     this.bloom = null;
+     this.bloomCtx = null;
+     this.dpr = 1;
+@@ -291,6 +292,14 @@ export class Rig {
+     this.bloom.height = Math.max(1, Math.floor(cssH / 4));
+   }
+ 
++  /**
++   * Brand mark worn by the DJ. Pass a loaded HTMLImageElement; until one
++   * arrives the booth falls back to a plain silhouette head.
++   */
++  setLogo(img) {
++    this.logo = img;
++  }
++
+   /** Press the blinders. While `hold` is true they stay at full output. */
+   pulseBlinder(hold = false) {
+     this.blinderPulse = this.t;
+@@ -652,14 +661,62 @@ export class Rig {
+     ctx.fillStyle = 'rgba(255,255,255,0.08)';
+     ctx.fillRect(bx + 4, by + bhh - L.s * 0.02, bw - 8, L.s * 0.006);
+ 
+-    // DJ silhouette behind the booth.
++    // DJ silhouette behind the booth — shoulders first, head on top.
+     ctx.fillStyle = 'rgba(4,5,9,0.95)';
+     ctx.beginPath();
+-    ctx.arc(w * 0.5, by - L.s * 0.035, L.s * 0.026, 0, TAU);
++    ctx.roundRect(w * 0.5 - L.s * 0.05, by - L.s * 0.012, L.s * 0.1, L.s * 0.05, 6);
+     ctx.fill();
++
++    this.#djHead(ctx, L, theme, master, w * 0.5, by - L.s * 0.042, L.s * 0.038);
++  }
++
++  /**
++   * The DJ wears the brand mark as a badge: a dark disc, the logo inset by a
++   * padding ring, an accent rim, and a glow that breathes with the kick.
++   */
++  #djHead(ctx, L, theme, master, x, y, r) {
++    const accent = hexToRgb(theme.accent);
++    const pulse = 0.55 + this.clock.env * 0.45;
++
++    // Halo behind the badge so it separates from the booth.
++    drawPool(ctx, x, y, r * 2.6, r * 2.6, accent, master * 0.16 * pulse);
++
++    // Disc.
+     ctx.beginPath();
+-    ctx.roundRect(w * 0.5 - L.s * 0.05, by - L.s * 0.012, L.s * 0.1, L.s * 0.05, 6);
++    ctx.arc(x, y, r, 0, TAU);
++    ctx.fillStyle = 'rgba(6,8,13,0.98)';
+     ctx.fill();
++
++    if (this.logo && this.logo.complete && this.logo.naturalWidth) {
++      // Padding: the mark sits inside the rim, never touching it.
++      const inner = r * 0.72;
++      ctx.save();
++      ctx.beginPath();
++      ctx.arc(x, y, inner, 0, TAU);
++      ctx.clip();
++      ctx.drawImage(this.logo, x - inner, y - inner, inner * 2, inner * 2);
++      ctx.restore();
++    } else {
++      // No mark loaded yet — keep the plain head rather than a hole.
++      ctx.beginPath();
++      ctx.arc(x, y, r * 0.72, 0, TAU);
++      ctx.fillStyle = 'rgba(10,13,20,0.98)';
++      ctx.fill();
++    }
++
++    // Rim, in the active theme accent.
++    ctx.beginPath();
++    ctx.arc(x, y, r, 0, TAU);
++    ctx.strokeStyle = rgba(accent, 0.5 + 0.45 * pulse * master);
++    ctx.lineWidth = Math.max(1.5, r * 0.13);
++    ctx.stroke();
++
++    // Thin highlight so the rim reads as hardware, not a flat ring.
++    ctx.beginPath();
++    ctx.arc(x, y, r * 1.02, Math.PI * 1.15, Math.PI * 1.75);
++    ctx.strokeStyle = `rgba(255,255,255,${0.25 * master})`;
++    ctx.lineWidth = Math.max(1, r * 0.05);
++    ctx.stroke();
+   }
+ 
+   #crowd(ctx, L, theme, scene, t, master, kick) {
+diff --git a/public/logo.svg b/public/logo.svg
+new file mode 100644
+index 0000000..9c6536b
+--- /dev/null
++++ b/public/logo.svg
+@@ -0,0 +1,19 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="SYNORA mark">
++  <title>SYNORA</title>
++  <g fill="#0a4d1c">
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(0 100 100)" />
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(30 100 100)" />
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(60 100 100)" />
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(90 100 100)" />
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(120 100 100)" />
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(150 100 100)" />
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(180 100 100)" />
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(210 100 100)" />
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(240 100 100)" />
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(270 100 100)" />
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(300 100 100)" />
++    <rect x="84" y="2" width="32" height="44" rx="7" transform="rotate(330 100 100)" />
++    <circle cx="100" cy="100" r="78" />
++  </g>
++  <circle cx="100" cy="100" r="36" fill="#ffffff" />
++</svg>
+-- 
+2.43.0
+
