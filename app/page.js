@@ -127,10 +127,10 @@ function StageSection() {
       <header className="relative flex items-start justify-between gap-3 p-4 sm:p-5 md:p-7">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl md:text-4xl font-black tracking-tight leading-none">
-            DJ <span style={{ color: theme.accent }}>RAMP</span>
+            SYN<span style={{ color: theme.accent }}>ORA</span>
           </h1>
           <p className="text-[9px] sm:text-[11px] md:text-xs text-white/50 mt-1 tracking-[0.14em] sm:tracking-[0.18em] uppercase">
-            Deluxe salon lighting desk
+            Reactive music &amp; lighting experience
             <span className="hidden xs:inline"> · made by Priyanshu Raj</span>
           </p>
           <p className="xs:hidden text-[9px] text-white/50 tracking-[0.14em] uppercase">Made by Priyanshu Raj</p>
@@ -227,7 +227,7 @@ function LyricsSection() {
 
         <footer className="mt-4 mb-16 border-t border-white/10 pt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-white/35">
           <span>
-            Made by <span style={{ color: theme.accent }}>Priyanshu Raj</span> · DJ Ramp light desk
+            Made by <span style={{ color: theme.accent }}>Priyanshu Raj</span> · SYNORA light desk
           </span>
           <span className="flex items-center gap-4">
             <Link href="/admin" className="inline-block py-2 hover:text-white/70 transition">
