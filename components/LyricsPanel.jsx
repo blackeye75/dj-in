@@ -35,7 +35,7 @@ export default function LyricsPanel() {
   }, [activeIndex]);
 
   return (
-    <Panel className="h-full flex flex-col min-h-0" title="Lyrics">
+    <Panel className="h-full flex flex-col lg:min-h-0" title="Lyrics">
       {lines.length === 0 ? (
         <div className="flex-1 grid place-items-center text-center px-6">
           <div>
@@ -46,7 +46,7 @@ export default function LyricsPanel() {
           </div>
         </div>
       ) : (
-        <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto scroll-thin py-6">
+        <div ref={listRef} className="flex-1 lg:min-h-0 max-lg:max-h-[70vh] overflow-y-auto scroll-thin py-6">
           {lines.map((line, i) => {
             const active = i === activeIndex;
             const passed = i < activeIndex;

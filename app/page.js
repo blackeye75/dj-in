@@ -91,7 +91,7 @@ function SideNav({ active }) {
           key={s.id}
           href={`#${s.id}`}
           title={s.label}
-          className="group flex items-center gap-2 justify-end"
+          className="group flex items-center gap-2 justify-end py-2 pl-2"
           onClick={(e) => {
             e.preventDefault();
             document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth' });
@@ -120,6 +120,7 @@ function StageSection() {
   const { theme, toggle, playerState, current, meta } = useShow();
   return (
     <section id="stage" className="snap-section relative flex flex-col">
+<<<<<<< ours
       <header className="flex items-start justify-between gap-4 p-5 md:p-7">
         <div>
           <h1 className="text-2xl md:text-4xl font-black tracking-tight leading-none">
@@ -127,24 +128,39 @@ function StageSection() {
           </h1>
           <p className="text-[11px] md:text-xs text-white/45 mt-1 tracking-[0.18em] uppercase">
             Reactive Music & Lighting Experience · made by Priyanshu Raj
+=======
+      {/* Legibility scrim: the rig behind this text is bright and moving. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/80 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
+
+      <header className="relative flex items-start justify-between gap-3 p-4 sm:p-5 md:p-7">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl md:text-4xl font-black tracking-tight leading-none">
+            DJ <span style={{ color: theme.accent }}>RAMP</span>
+          </h1>
+          <p className="text-[9px] sm:text-[11px] md:text-xs text-white/50 mt-1 tracking-[0.14em] sm:tracking-[0.18em] uppercase">
+            Deluxe salon lighting desk
+            <span className="hidden xs:inline"> · made by Priyanshu Raj</span>
+>>>>>>> theirs
           </p>
+          <p className="xs:hidden text-[9px] text-white/50 tracking-[0.14em] uppercase">Made by Priyanshu Raj</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-none">
           <span className="hidden md:inline text-[10px] text-white/35 tracking-[0.18em] uppercase">
             {meta.visitors.toLocaleString()} visitors
           </span>
-          <Link href="/admin" className="btn !text-[11px]">
+          <Link href="/admin" className="btn !text-[10px] sm:!text-[11px] whitespace-nowrap">
             Control panel
           </Link>
         </div>
       </header>
 
-      <div className="flex-1 flex items-end md:items-center">
-        <div className="p-5 md:p-7 w-full max-w-md">
+      <div className="relative flex-1 flex items-end md:items-center">
+        <div className="p-4 sm:p-5 md:p-7 w-full max-w-md">
           <ThemeSelect />
-          <p className="mt-3 text-sm text-white/50 leading-relaxed">{theme.tagline}</p>
+          <p className="mt-3 text-[13px] sm:text-sm text-white/60 leading-relaxed">{theme.tagline}</p>
 
-          <div className="mt-5 flex items-center gap-3">
+          <div className="mt-4 sm:mt-5 flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={toggle}
@@ -153,15 +169,17 @@ function StageSection() {
             >
               {playerState.playing ? 'Pause the set' : 'Start the set'}
             </button>
-            <div className="min-w-0">
-              <p className="text-[11px] text-white/35 uppercase tracking-[0.18em]">Now on the deck</p>
-              <p className="text-sm truncate">{current ? `${current.title} — ${current.artist}` : 'Nothing loaded yet'}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] sm:text-[11px] text-white/40 uppercase tracking-[0.18em]">Now on the deck</p>
+              <p className="text-[13px] sm:text-sm truncate">
+                {current ? `${current.title} — ${current.artist}` : 'Nothing loaded yet'}
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="px-5 md:px-7 pt-5 pb-20 text-[10px] tracking-[0.24em] uppercase text-white/30">
+      <div className="relative px-4 sm:px-5 md:px-7 pt-4 pb-24 text-[10px] tracking-[0.24em] uppercase text-white/35">
         Scroll for the light desk ↓
       </div>
     </section>
@@ -177,7 +195,7 @@ function DeskSection() {
           title="Patch it, move it, blind them"
           note="Every fader is DMX-ish: it changes the rig behind this panel in real time."
         />
-        <div className="flex-1 min-h-0 overflow-y-auto scroll-thin -mx-1 px-1">
+        <div className="flex-1 lg:min-h-0 lg:overflow-y-auto scroll-thin -mx-1 px-1">
           <ControlDesk />
         </div>
       </div>
@@ -192,9 +210,9 @@ function DeckSection() {
         <SectionHead
           kicker="Music system"
           title="Deck, queue and search"
-          note="Drag the queue to re-order it. Search adds anything you find to the same queue."
+          note="Re-order the queue by dragging it, or with the arrows on touch. Search adds anything you find to the same queue."
         />
-        <div className="grid gap-4 lg:grid-cols-3 flex-1 min-h-0 max-lg:auto-rows-[minmax(320px,auto)]">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 flex-1 lg:min-h-0">
           <PlayerDeck />
           <QueuePanel />
           <SearchPanel />
@@ -210,7 +228,7 @@ function LyricsSection() {
     <section id="lyrics" className="snap-section relative bg-black/65 backdrop-blur-sm flex flex-col">
       <div className="w-full max-w-7xl mx-auto px-4 md:px-7 pt-6 pb-4 lg:h-dvh flex flex-col">
         <SectionHead kicker="Sing along" title="Lyrics, timed to the track" note="Tap any line to jump the playhead there." />
-        <div className="grid gap-4 lg:grid-cols-3 flex-1 min-h-0 max-lg:auto-rows-[minmax(320px,auto)]">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 flex-1 lg:min-h-0">
           <div className="lg:col-span-2 min-h-[280px]">
             <LyricsPanel />
           </div>
@@ -222,7 +240,7 @@ function LyricsSection() {
             Made by <span style={{ color: theme.accent }}>Priyanshu Raj</span> · DJ Ramp light desk
           </span>
           <span className="flex items-center gap-4">
-            <Link href="/admin" className="hover:text-white/70 transition">
+            <Link href="/admin" className="inline-block py-2 hover:text-white/70 transition">
               Control panel
             </Link>
             <span>Next.js · MongoDB Atlas · Web Audio</span>

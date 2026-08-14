@@ -73,7 +73,7 @@ export function Segmented({ label, options, value, onChange, name }) {
 
 export function Panel({ title, right, children, className = '' }) {
   return (
-    <section className={`panel relative p-4 ${className}`}>
+    <section className={`panel relative p-4 min-w-0 ${className}`}>
       {title ? (
         <header className="flex items-center justify-between mb-3">
           <h3 className="text-[11px] tracking-[0.2em] uppercase text-white/45">{title}</h3>

@@ -24,20 +24,20 @@ export default function QueuePanel() {
 
   return (
     <Panel
-      className="h-full flex flex-col min-h-0"
+      className="h-full flex flex-col lg:min-h-0"
       title={`Queue · ${queue.length}`}
       right={
         <div className="flex gap-1">
-          <button type="button" className="btn !py-1 !px-2 !text-[10px]" onClick={restoreThemeQueue}>
+          <button type="button" className="btn !py-2 !px-3 lg:!py-1 lg:!px-2 !text-[10px]" onClick={restoreThemeQueue}>
             Reload list
           </button>
-          <button type="button" className="btn !py-1 !px-2 !text-[10px]" onClick={clearQueue}>
+          <button type="button" className="btn !py-2 !px-3 lg:!py-1 lg:!px-2 !text-[10px]" onClick={clearQueue}>
             Clear
           </button>
         </div>
       }
     >
-      <ol className="flex-1 min-h-0 overflow-y-auto scroll-thin -mx-2 px-2 space-y-1">
+      <ol className="flex-1 lg:min-h-0 lg:overflow-y-auto scroll-thin -mx-2 px-2 space-y-1">
         {queue.length === 0 ? (
           <li className="text-sm text-white/35 py-8 text-center">
             Queue is empty. Reload the category list or search for a track.
@@ -75,7 +75,32 @@ export default function QueuePanel() {
                 active ? 'bg-white/10 border-white/15' : 'border-transparent hover:bg-white/5'
               }`}
             >
-              <span className="cursor-grab active:cursor-grabbing text-white/25 hover:text-white/60 px-1" title="Drag to reorder">
+              {/* Touch has no HTML5 drag, so small screens get move buttons instead. */}
+              <span className="flex flex-col lg:hidden">
+                <button
+                  type="button"
+                  aria-label={`Move ${track.title} up`}
+                  disabled={i === 0}
+                  className="px-2.5 min-h-[32px] leading-none text-white/45 disabled:opacity-20 active:text-white"
+                  onClick={() => moveInQueue(i, i - 1)}
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move ${track.title} down`}
+                  disabled={i === queue.length - 1}
+                  className="px-2.5 min-h-[32px] leading-none text-white/45 disabled:opacity-20 active:text-white"
+                  onClick={() => moveInQueue(i, i + 1)}
+                >
+                  ▼
+                </button>
+              </span>
+
+              <span
+                className="hidden lg:block cursor-grab active:cursor-grabbing text-white/25 hover:text-white/60 px-1"
+                title="Drag to reorder"
+              >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                   <circle cx="9" cy="6" r="1.6" />
                   <circle cx="15" cy="6" r="1.6" />
@@ -111,7 +136,7 @@ export default function QueuePanel() {
               <button
                 type="button"
                 aria-label={`Remove ${track.title}`}
-                className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-white/40 hover:text-white px-1 transition"
+                className="lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 text-white/40 hover:text-white px-3 py-2 min-w-[40px] lg:min-w-0 lg:px-1 transition"
                 onClick={() => removeFromQueue(track.uid)}
               >
                 ✕

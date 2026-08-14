@@ -59,7 +59,7 @@ export default function SearchPanel() {
   });
 
   return (
-    <Panel className="h-full flex flex-col min-h-0" title="Search music">
+    <Panel className="h-full flex flex-col lg:min-h-0" title="Search music">
       <div className="flex gap-2 mb-3">
         <input
           value={q}
@@ -87,7 +87,7 @@ export default function SearchPanel() {
       {busy ? <p className="text-[11px] text-white/40 mb-2">Searching…</p> : null}
       {error && !busy ? <p className="text-[11px] text-amber-300/70 mb-2">{error}</p> : null}
 
-      <ul className="flex-1 min-h-0 overflow-y-auto scroll-thin -mx-2 px-2 space-y-1">
+      <ul className="flex-1 lg:min-h-0 lg:overflow-y-auto scroll-thin -mx-2 px-2 space-y-1">
         {results.map((r) => (
           <li key={`${r.source}-${r.sourceId}`} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/5 transition">
             <span className="w-9 h-9 rounded-md overflow-hidden flex-none bg-white/5 border border-white/10">
@@ -104,12 +104,12 @@ export default function SearchPanel() {
               <span className="text-[10px] text-white/30">no preview</span>
             ) : (
               <>
-                <button type="button" className="btn !py-1 !px-2 !text-[10px]" onClick={() => enqueue(asTrack(r))}>
+                <button type="button" className="btn !py-2 !px-3 lg:!py-1 lg:!px-2 !text-[10px]" onClick={() => enqueue(asTrack(r))}>
                   Queue
                 </button>
                 <button
                   type="button"
-                  className="btn btn-accent !py-1 !px-2 !text-[10px]"
+                  className="btn btn-accent !py-2 !px-3 lg:!py-1 lg:!px-2 !text-[10px]"
                   onClick={() => playTrack(asTrack(r))}
                 >
                   Play

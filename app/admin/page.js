@@ -111,8 +111,8 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-ink">
-      <header className="border-b border-white/10 px-5 py-4 flex flex-wrap items-center gap-3 justify-between">
+    <div className="min-h-dvh bg-ink overflow-x-hidden">
+      <header className="border-b border-white/10 px-4 sm:px-5 py-4 flex flex-wrap items-center gap-3 justify-between">
         <div>
           <h1 className="text-lg font-bold">
             Control panel <span className="text-white/30 font-normal text-sm">· pre-injected music & lyrics</span>
@@ -141,7 +141,7 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto p-5 space-y-5">
+      <div className="max-w-6xl mx-auto p-4 sm:p-5 space-y-5">
         {status ? <div className="panel px-4 py-2 text-sm text-white/80">{status}</div> : null}
 
         <div className="flex flex-wrap gap-2">
@@ -158,7 +158,7 @@ export default function AdminPage() {
           ))}
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-2 min-w-0">
           <TrackList
             tracks={tracks}
             busy={busy}
@@ -179,7 +179,7 @@ export default function AdminPage() {
             }}
           />
 
-          <div className="space-y-5">
+          <div className="space-y-5 min-w-0">
             <SearchAdd providers={meta.providers} onAdd={addTrack} />
             <ManualAdd onAdd={addTrack} />
             <ShowSettings meta={meta} onSave={async (patch) => {
@@ -213,11 +213,11 @@ export default function AdminPage() {
 
 function TrackList({ tracks, onMove, onRemove, onEdit, onResolve, busy }) {
   return (
-    <section className="panel p-4">
+    <section className="panel p-4 min-w-0">
       <h2 className="text-[11px] tracking-[0.2em] uppercase text-white/45 mb-3">Playlist · {tracks.length} tracks</h2>
       <ol className="space-y-1.5">
         {tracks.map((t, i) => (
-          <li key={t.id} className="panel-tight p-2.5 flex items-center gap-3">
+          <li key={t.id} className="panel-tight p-2.5 flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
             <span className="flex flex-col">
               <button type="button" className="text-white/40 hover:text-white leading-none" onClick={() => onMove(i, i - 1)} aria-label="Move up">
                 ▲
@@ -234,7 +234,7 @@ function TrackList({ tracks, onMove, onRemove, onEdit, onResolve, busy }) {
                 i + 1
               )}
             </span>
-            <span className="min-w-0 flex-1">
+            <span className="min-w-0 flex-1 basis-40">
               <span className="block text-sm truncate">{t.title}</span>
               <span className="block text-[11px] text-white/40 truncate">
                 {t.artist} · {t.source}
@@ -289,7 +289,7 @@ function SearchAdd({ providers, onAdd }) {
   }, [q, provider]);
 
   return (
-    <section className="panel p-4">
+    <section className="panel p-4 min-w-0">
       <h2 className="text-[11px] tracking-[0.2em] uppercase text-white/45 mb-3">Add from search</h2>
       <div className="flex gap-2">
         <input
@@ -351,9 +351,9 @@ function ManualAdd({ onAdd }) {
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <section className="panel p-4">
+    <section className="panel p-4 min-w-0">
       <h2 className="text-[11px] tracking-[0.2em] uppercase text-white/45 mb-3">Add manually</h2>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Input label="Title" value={form.title} onChange={set('title')} />
         <Input label="Artist" value={form.artist} onChange={set('artist')} />
         <label className="text-[11px] text-white/45">
@@ -396,9 +396,9 @@ function ShowSettings({ meta, onSave }) {
   }, [meta.crowdSize, meta.showName]);
 
   return (
-    <section className="panel p-4">
+    <section className="panel p-4 min-w-0">
       <h2 className="text-[11px] tracking-[0.2em] uppercase text-white/45 mb-3">Show details</h2>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Input label="Show name" value={showName} onChange={(e) => setShowName(e.target.value)} />
         <Input label="Guests / customers" type="number" value={crowdSize} onChange={(e) => setCrowd(e.target.value)} />
       </div>

@@ -3,6 +3,10 @@ module.exports = {
   content: ['./app/**/*.{js,jsx}', './components/**/*.{js,jsx}', './lib/**/*.{js,jsx}'],
   theme: {
     extend: {
+      screens: {
+        // Narrow phones (320–374px) need their own step below Tailwind's `sm`.
+        xs: '375px',
+      },
       fontFamily: {
         display: ['var(--font-display)', 'system-ui', 'sans-serif'],
       },

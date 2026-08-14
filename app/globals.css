@@ -202,6 +202,7 @@ body {
 
 .seg button {
   flex: 1;
+  min-width: 0;
   padding: 5px 8px;
   font-size: 11px;
   letter-spacing: 0.05em;
@@ -280,5 +281,56 @@ body {
   .switch span,
   .lyric-line {
     transition: none;
+  }
+}
+
+/* Touch devices get a bigger grab area and thumb — 26px is a mouse target. */
+@media (pointer: coarse) {
+  .fader {
+    height: 44px;
+  }
+
+  .fader::-webkit-slider-runnable-track,
+  .fader::-moz-range-track {
+    height: 8px;
+  }
+
+  .fader::-webkit-slider-thumb {
+    width: 22px;
+    height: 30px;
+    margin-top: -11px;
+  }
+
+  .fader::-moz-range-thumb {
+    width: 22px;
+    height: 30px;
+  }
+
+  .seg button {
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+
+  .switch {
+    width: 50px;
+    height: 28px;
+  }
+
+  .switch span {
+    width: 22px;
+    height: 22px;
+  }
+
+  .switch[data-on='true'] span {
+    transform: translateX(22px);
+  }
+
+  .btn {
+    padding: 10px 16px;
+  }
+
+  /* Queue rows are drag handles; stop the browser hijacking the gesture. */
+  .queue-item {
+    touch-action: pan-y;
   }
 }
