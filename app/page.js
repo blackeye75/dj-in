@@ -120,15 +120,6 @@ function StageSection() {
   const { theme, toggle, playerState, current, meta } = useShow();
   return (
     <section id="stage" className="snap-section relative flex flex-col">
-<<<<<<< ours
-      <header className="flex items-start justify-between gap-4 p-5 md:p-7">
-        <div>
-          <h1 className="text-2xl md:text-4xl font-black tracking-tight leading-none">
-            SYN<span style={{ color: theme.accent }}>ORA</span>
-          </h1>
-          <p className="text-[11px] md:text-xs text-white/45 mt-1 tracking-[0.18em] uppercase">
-            Reactive Music & Lighting Experience · made by Priyanshu Raj
-=======
       {/* Legibility scrim: the rig behind this text is bright and moving. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/80 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
@@ -141,7 +132,6 @@ function StageSection() {
           <p className="text-[9px] sm:text-[11px] md:text-xs text-white/50 mt-1 tracking-[0.14em] sm:tracking-[0.18em] uppercase">
             Deluxe salon lighting desk
             <span className="hidden xs:inline"> · made by Priyanshu Raj</span>
->>>>>>> theirs
           </p>
           <p className="xs:hidden text-[9px] text-white/50 tracking-[0.14em] uppercase">Made by Priyanshu Raj</p>
         </div>
