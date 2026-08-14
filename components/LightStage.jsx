@@ -23,15 +23,16 @@ export default function LightStage({ className = '' }) {
     const rig = new Rig(canvas);
     rigRef.current = rig;
 
-    // Brand mark worn by the DJ. Drop your own file at either path to swap it;
-    // the rig draws a plain head until one loads, so a missing file is harmless.
+    // Brand mark worn by the DJ: public/logo.png is the artwork, with the
+    // bundled SVG as a fallback. The rig draws a plain head until one loads,
+    // so a missing file is never a hole in the scene.
     const logo = new Image();
     logo.decoding = 'async';
     logo.onload = () => rig.setLogo(logo);
     logo.onerror = () => {
-      if (logo.src.endsWith('.svg')) logo.src = '/logo.png';
+      if (logo.src.endsWith('.png')) logo.src = '/logo.svg';
     };
-    logo.src = '/logo.svg';
+    logo.src = '/logo.png';
 
     const resize = () => {
       const box = canvas.parentElement.getBoundingClientRect();
