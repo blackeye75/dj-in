@@ -12,6 +12,7 @@ import LyricsPanel from '@/components/LyricsPanel';
 import ShowStats from '@/components/ShowStats';
 import ThemeSelect from '@/components/ThemeSelect';
 import TransportBar from '@/components/TransportBar';
+import InAppBrowserNotice from '@/components/InAppBrowserNotice';
 
 const SECTIONS = [
   { id: 'stage', label: 'Stage' },
@@ -63,6 +64,7 @@ function Show() {
         <LightStage />
       </div>
 
+      <InAppBrowserNotice />
       <SideNav active={active} />
 
       <main ref={rootRef} className="snap-root relative z-10">

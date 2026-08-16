@@ -66,7 +66,21 @@ export function ShowProvider({ children }) {
       onError: (msg) => notify(msg),
     });
     engineRef.current = engine;
-    return () => engine.destroy();
+
+    // Catch-all: the very first touch anywhere primes audio, so even a tap we
+    // don't own (scrolling, opening the dropdown) buys the permission.
+    const prime = () => engine.unlock();
+    const opts = { once: true, capture: true, passive: true };
+    window.addEventListener('pointerdown', prime, opts);
+    window.addEventListener('touchend', prime, opts);
+    window.addEventListener('keydown', prime, opts);
+
+    return () => {
+      window.removeEventListener('pointerdown', prime, opts);
+      window.removeEventListener('touchend', prime, opts);
+      window.removeEventListener('keydown', prime, opts);
+      engine.destroy();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -174,6 +188,10 @@ export function ShowProvider({ children }) {
     async (index, { autoplay = true } = {}) => {
       const q = queueRef.current.queue;
       if (index < 0 || index >= q.length) return;
+      // Claim the user gesture before anything async: resolving a track hits
+      // the network, and by the time that returns the activation is gone on
+      // iOS and in in-app browsers.
+      engineRef.current?.unlock();
       setCurrentIndex(index);
       const track = await resolveIfNeeded(q[index]);
       await engineRef.current?.load(track, { autoplay });
@@ -274,6 +292,7 @@ export function ShowProvider({ children }) {
   const toggle = useCallback(async () => {
     const engine = engineRef.current;
     if (!engine) return;
+    engine.unlock();
     if (!engine.track && queueRef.current.queue.length) {
       await playAt(Math.max(0, queueRef.current.currentIndex));
       return;

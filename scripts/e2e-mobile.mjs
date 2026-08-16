@@ -73,7 +73,15 @@ const sample = () =>
     for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2];
     return s / (d.length / 4);
   });
-const idle = await sample();
+// Baseline over several frames, taking the darkest: a single sample can land
+// on a strobe flash or the auto-blinder that fires on the bar.
+const idles = [];
+for (let i = 0; i < 5; i++) {
+  idles.push(await sample());
+  await page.waitForTimeout(90);
+}
+const idle = Math.min(...idles);
+
 const blind = page.getByRole('button', { name: 'Blind!' });
 await blind.hover();
 await page.mouse.down();
