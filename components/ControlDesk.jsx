@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useShow } from '@/app/show-context';
 import { COLOR_MODES, DIRECTIONS, FIXTURE_HINTS, FIXTURE_LABELS, PATTERNS } from '@/lib/themes';
 import { BACKDROPS, HEX_MODES } from '@/lib/backdrop';
+import { RETRO_MODES, RETRO_RIGS, DMX_MODES } from '@/lib/retroHex';
 import { Fader, LedDot, Panel, Segmented, Switch } from './ui';
 
 const GROUPS = [
@@ -151,9 +152,63 @@ export default function ControlDesk() {
         </div>
       </Panel>
 
-      {/* Column four holds the two surface/effect racks, so the desk stays a
+      {/* Column four holds the surface/effect racks, so the desk stays a
           single row of four at desk width. */}
       <div className="space-y-4 min-w-0">
+        {/* ------------------------------------------------ retro hex */}
+        <Panel
+          className="rack-screw"
+          title="7-Head Retro Hex Par"
+          right={
+            <span className="flex items-center gap-2 text-[10px] text-white/40">
+              <LedDot on={f.retroHex} color={theme.accent} />
+              {scene.retroDmx === 'ch4' ? '4ch' : '42ch'}
+            </span>
+          }
+        >
+          <div className="space-y-3">
+            <div className="panel-tight px-1 py-1 flex items-center gap-2 pr-3 min-w-0">
+              <Switch
+                label={FIXTURE_LABELS.retroHex}
+                hint={FIXTURE_HINTS.retroHex}
+                on={f.retroHex}
+                onToggle={() => toggleFixture('retroHex')}
+              />
+            </div>
+
+            <Segmented
+              label="Programme"
+              options={RETRO_MODES}
+              value={scene.retroMode}
+              onChange={(v) => updateScene({ retroMode: v })}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Segmented label="Rig" options={RETRO_RIGS} value={scene.retroRig} onChange={(v) => updateScene({ retroRig: v })} />
+              <Segmented label="DMX mode" options={DMX_MODES} value={scene.retroDmx} onChange={(v) => updateScene({ retroDmx: v })} />
+            </div>
+
+            <Fader
+              label="Tungsten filament"
+              value={scene.retroFilament}
+              disabled={!f.retroHex}
+              onChange={(v) => updateScene({ retroFilament: v })}
+              unit="%"
+            />
+            <Fader
+              label="RGB pixel ring"
+              value={scene.retroPixels}
+              disabled={!f.retroHex}
+              onChange={(v) => updateScene({ retroPixels: v })}
+              unit="%"
+            />
+            <p className="text-[10px] text-white/35 leading-relaxed">
+              {scene.retroDmx === 'ch4'
+                ? 'On 4 channels all seven heads take the same colour — one big lamp.'
+                : 'On 42 channels every pixel is addressed, so patterns travel across the cluster.'}
+            </p>
+          </div>
+        </Panel>
+
       {/* --------------------------------------------------- backdrop */}
       <Panel
         className="rack-screw"
