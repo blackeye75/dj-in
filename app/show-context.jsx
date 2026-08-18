@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PlayerEngine, inAppBrowser } from '@/lib/player';
+import { PlayerEngine, inAppBrowser, restrictedWebView } from '@/lib/player';
 import { defaultSceneFor, getTheme, THEMES } from '@/lib/themes';
 
 const ShowContext = createContext(null);
@@ -125,7 +125,7 @@ export function ShowProvider({ children }) {
   // video isn't spent waiting for a script to download. Pointless in an in-app
   // browser, where we substitute audio anyway.
   useEffect(() => {
-    if (inAppBrowser()) return;
+    if (restrictedWebView()) return;
     if (queue.some((t) => t.source === 'youtube')) engineRef.current?.warmYouTube();
   }, [queue]);
 
@@ -239,13 +239,15 @@ export function ShowProvider({ children }) {
       setCurrentIndex(index);
       let track = await resolveIfNeeded(q[index]);
 
-      // Don't even attempt the embedded player inside an in-app browser: it
-      // stalls and then fails. Go straight to an audio preview.
-      const app = inAppBrowser();
-      if (track.source === 'youtube' && app) {
+      // Don't even attempt the embedded player inside a WebView: it accepts
+      // playVideo() and silently ignores it. Go straight to an audio preview.
+      if (track.source === 'youtube' && restrictedWebView()) {
         const alt = await previewFallback(track);
         if (alt) {
-          notify(`${app}'s browser can't run the YouTube player — playing a 30-second preview.`);
+          const app = inAppBrowser();
+          notify(
+            `${app ? `${app}'s browser` : 'This in-app browser'} can't run the YouTube player — playing a 30-second preview.`
+          );
           track = alt;
         }
       }
