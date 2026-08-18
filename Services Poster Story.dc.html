@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="_ds/industry-1c58e713-26b1-40be-9742-901909e60487/styles.css">
+  <script src="_ds/industry-1c58e713-26b1-40be-9742-901909e60487/_ds_bundle.js"></script>
+  <style>
+    a { color: var(--color-accent-700); }
+    a:hover { color: var(--color-accent); }
+  </style>
+</helmet>
+<div style="width:1080px;height:1920px;background:var(--color-bg);color:var(--color-text);position:relative;overflow:hidden;font-family:var(--font-body);display:flex;flex-direction:column">
+
+  <!-- faint blueprint grid -->
+  <div style="position:absolute;inset:0;pointer-events:none;opacity:0.5;background-image:linear-gradient(to right, color-mix(in srgb, var(--color-text) 5%, transparent) 1px, transparent 1px),linear-gradient(to bottom, color-mix(in srgb, var(--color-text) 5%, transparent) 1px, transparent 1px);background-size:72px 72px"></div>
+
+  <!-- ============ TOP: brand + hero ============ -->
+  <section style="position:relative;padding:80px 72px 56px;display:flex;flex-direction:column;">
+
+    <!-- brand row -->
+    <header style="display:flex;align-items:center;justify-content:space-between;gap:20px;">
+      <div style="display:flex;align-items:center;gap:18px;">
+        <div class="blueprint" style="width:60px;height:60px;display:flex;align-items:center;justify-content:center;">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <span style="font-family:var(--font-heading);font-weight:700;font-size:26px;letter-spacing:-0.02em;color:var(--color-accent);">DS</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <span style="font-family:var(--font-heading);font-weight:600;font-size:24px;letter-spacing:0.02em;line-height:1;">DARKROOM STUDIO</span>
+          <span style="font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:color-mix(in srgb,var(--color-text) 60%,transparent);">Priyanshu Raj · Software Studio</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- hero -->
+    <div style="margin-top:72px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:26px;">
+        <span style="width:38px;height:1px;background:var(--color-accent);"></span>
+        <span style="font-family:var(--font-heading);font-weight:600;font-size:15px;letter-spacing:0.28em;text-transform:uppercase;color:var(--color-accent-700);">Freelance Software Development</span>
+      </div>
+      <h1 style="font-size:96px;line-height:0.97;letter-spacing:-0.025em;font-weight:600;margin:0;">We build the systems your business runs on.</h1>
+      <p style="font-size:23px;line-height:1.5;max-width:34ch;margin:34px 0 0;color:color-mix(in srgb,var(--color-text) 78%,transparent);">Custom software, management systems and digital products — engineered end to end and built to scale with you.</p>
+    </div>
+
+    <!-- stats -->
+    <div style="display:flex;gap:80px;margin-top:56px;">
+      <div>
+        <div style="font-family:var(--font-heading);font-weight:700;font-size:64px;line-height:1;color:var(--color-accent);">4+</div>
+        <div style="font-size:14px;letter-spacing:0.18em;text-transform:uppercase;margin-top:8px;color:color-mix(in srgb,var(--color-text) 62%,transparent);">Years experience</div>
+      </div>
+      <div>
+        <div style="font-family:var(--font-heading);font-weight:700;font-size:64px;line-height:1;color:var(--color-accent);">25+</div>
+        <div style="font-size:14px;letter-spacing:0.18em;text-transform:uppercase;margin-top:8px;color:color-mix(in srgb,var(--color-text) 62%,transparent);">Projects delivered</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BOTTOM: services field ============ -->
+  <aside style="position:relative;background:var(--color-accent-900);color:var(--color-bg);padding:56px 72px 72px;display:flex;flex-direction:column;flex:1;">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;">
+      <h2 style="font-size:34px;letter-spacing:0.02em;font-weight:600;margin:0;color:var(--color-bg);">Services</h2>
+      <span style="font-family:var(--font-heading);font-weight:600;font-size:18px;letter-spacing:0.25em;color:color-mix(in srgb,var(--color-bg) 55%,transparent);">/ 06</span>
+    </div>
+    <span style="width:100%;height:1px;background:color-mix(in srgb,var(--color-bg) 22%,transparent);"></span>
+
+    <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;flex:1;">
+      <sc-for list="{{ services }}" as="svc" hint-placeholder-count="6">
+        <li style="display:flex;align-items:baseline;gap:24px;padding:22px 0;border-bottom:1px solid color-mix(in srgb,var(--color-bg) 16%,transparent);flex:1;">
+          <span style="font-family:var(--font-heading);font-weight:600;font-size:19px;letter-spacing:0.15em;color:color-mix(in srgb,var(--color-bg) 48%,transparent);min-width:38px;">{{ svc.no }}</span>
+          <div style="display:flex;flex-direction:column;justify-content:center;">
+            <div style="font-family:var(--font-heading);font-weight:600;font-size:32px;line-height:1.06;letter-spacing:0.005em;color:var(--color-bg);">{{ svc.name }}</div>
+            <div style="font-size:16px;line-height:1.4;margin-top:5px;color:color-mix(in srgb,var(--color-bg) 60%,transparent);">{{ svc.desc }}</div>
+          </div>
+        </li>
+      </sc-for>
+    </ol>
+
+    <!-- contact CTA -->
+    <div style="margin-top:40px;">
+      <div style="font-size:13px;letter-spacing:0.3em;text-transform:uppercase;color:color-mix(in srgb,var(--color-bg) 55%,transparent);margin-bottom:14px;">Let's build something</div>
+      <div class="blueprint" style="display:flex;align-items:center;justify-content:space-between;padding:24px 28px;border-color:color-mix(in srgb,var(--color-bg) 40%,transparent);">
+        <i class="corner tl" style="color:color-mix(in srgb,var(--color-bg) 60%,transparent);"></i><i class="corner tr" style="color:color-mix(in srgb,var(--color-bg) 60%,transparent);"></i><i class="corner bl" style="color:color-mix(in srgb,var(--color-bg) 60%,transparent);"></i><i class="corner br" style="color:color-mix(in srgb,var(--color-bg) 60%,transparent);"></i>
+        <span style="font-family:var(--font-heading);font-weight:600;font-size:38px;letter-spacing:0.04em;color:var(--color-bg);">+91 96127 15266</span>
+        <span style="font-family:var(--font-heading);font-weight:600;font-size:16px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-accent-2);">Call /<br>WhatsApp</span>
+      </div>
+    </div>
+  </aside>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:1920}}">
+class Component extends DCLogic {
+  renderVals() {
+    const services = [
+      { no: "01", name: "Management System Development", desc: "ERP, CRM & admin platforms that run operations." },
+      { no: "02", name: "Custom Software Development", desc: "Bespoke tools built around how you work." },
+      { no: "03", name: "Web App Development", desc: "Fast, scalable web applications end to end." },
+      { no: "04", name: "UI / UX Design", desc: "Interfaces that are clean, clear and usable." },
+      { no: "05", name: "E-commerce Solutions", desc: "Storefronts, checkout & payment integration." },
+      { no: "06", name: "Maintenance & Support", desc: "Ongoing updates, fixes and reliable uptime." },
+    ];
+    return { services };
+  }
+}
+</script>
+</body>
+</html>

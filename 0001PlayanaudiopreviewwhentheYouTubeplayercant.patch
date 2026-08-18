@@ -1,0 +1,220 @@
+From 4398e32e4251b4975166d2a49736475675cb5660 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 18 Aug 2026 19:51:49 +0000
+Subject: [PATCH] Play an audio preview when the YouTube player can't run
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+iTunes previews now work in in-app browsers, but YouTube tracks stayed
+silent. Two causes: the player was built only after the tap (script fetch,
+then onReady), so playVideo() landed well outside the activation window; and
+priming an <audio> element grants nothing to a cross-origin iframe.
+
+- warmYouTube() builds the player ahead of the tap, and a warm player loads
+  and starts the video synchronously, inside the gesture.
+- In an in-app browser the embedded player is skipped entirely — it stalls
+  and then fails — and a 30-second preview of the same track plays instead.
+- Anywhere else, a player that fails to start (embed disabled, blocked,
+  offline) falls back the same way rather than sitting silent.
+
+Verified with an Instagram user agent: no request to youtube.com is made,
+the toast explains the swap, and audio plays. The control run attempts
+YouTube first and falls back when it can't load. Real YouTube playback is
+unreachable from this sandbox, so that success path is unverified here.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_018JjAD7WNZmP26cnkvFDZws
+---
+ app/show-context.jsx | 62 +++++++++++++++++++++++++++++++++++++++++---
+ lib/player.js        | 40 +++++++++++++++++++++++++---
+ 2 files changed, 96 insertions(+), 6 deletions(-)
+
+diff --git a/app/show-context.jsx b/app/show-context.jsx
+index 7d83051..fca8f1a 100644
+--- a/app/show-context.jsx
++++ b/app/show-context.jsx
+@@ -1,7 +1,7 @@
+ 'use client';
+ 
+ import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+-import { PlayerEngine } from '@/lib/player';
++import { PlayerEngine, inAppBrowser } from '@/lib/player';
+ import { defaultSceneFor, getTheme, THEMES } from '@/lib/themes';
+ 
+ const ShowContext = createContext(null);
+@@ -64,6 +64,17 @@ export function ShowProvider({ children }) {
+       onState: (s) => setPlayerState((prev) => ({ ...prev, ...s })),
+       onEnded: () => advance(1, true),
+       onError: (msg) => notify(msg),
++      // The embedded player failed anywhere else (blocked, embed disabled,
++      // offline). Substitute an audio preview rather than sitting silent.
++      onYouTubeUnavailable: async (track) => {
++        const alt = track ? await previewFallback(track) : null;
++        if (alt) {
++          notify('That video can’t play here — using a 30-second preview instead.');
++          engine.load(alt);
++        } else {
++          notify('That video cannot be played in this browser.');
++        }
++      },
+     });
+     engineRef.current = engine;
+ 
+@@ -110,6 +121,14 @@ export function ShowProvider({ children }) {
+     loadTracks(themeId);
+   }, [themeId, loadTracks]);
+ 
++  // Build the YouTube player before it is needed, so the tap that starts a
++  // video isn't spent waiting for a script to download. Pointless in an in-app
++  // browser, where we substitute audio anyway.
++  useEffect(() => {
++    if (inAppBrowser()) return;
++    if (queue.some((t) => t.source === 'youtube')) engineRef.current?.warmYouTube();
++  }, [queue]);
++
+   useEffect(() => {
+     let cancelled = false;
+     (async () => {
+@@ -184,6 +203,31 @@ export function ShowProvider({ children }) {
+     }
+   }, [notify]);
+ 
++  /**
++   * Find a playable audio preview for a track the YouTube player can't handle.
++   * In-app browsers run a WebView that blocks the embedded player, so the
++   * 30-second preview is the difference between sound and silence there.
++   */
++  const previewFallback = useCallback(
++    async (track) => {
++      const query = `${track.title || ''} ${track.artist || ''}`.trim();
++      if (!query) return null;
++      try {
++        const res = await fetch('/api/tracks/resolve', {
++          method: 'POST',
++          headers: { 'Content-Type': 'application/json' },
++          body: JSON.stringify({ query }),
++        });
++        const data = await res.json();
++        if (!res.ok || !data.resolved?.previewUrl) return null;
++        return { ...track, ...data.resolved, source: 'itunes' };
++      } catch {
++        return null;
++      }
++    },
++    []
++  );
++
+   const playAt = useCallback(
+     async (index, { autoplay = true } = {}) => {
+       const q = queueRef.current.queue;
+@@ -193,10 +237,22 @@ export function ShowProvider({ children }) {
+       // iOS and in in-app browsers.
+       engineRef.current?.unlock();
+       setCurrentIndex(index);
+-      const track = await resolveIfNeeded(q[index]);
++      let track = await resolveIfNeeded(q[index]);
++
++      // Don't even attempt the embedded player inside an in-app browser: it
++      // stalls and then fails. Go straight to an audio preview.
++      const app = inAppBrowser();
++      if (track.source === 'youtube' && app) {
++        const alt = await previewFallback(track);
++        if (alt) {
++          notify(`${app}'s browser can't run the YouTube player — playing a 30-second preview.`);
++          track = alt;
++        }
++      }
++
+       await engineRef.current?.load(track, { autoplay });
+     },
+-    [resolveIfNeeded]
++    [resolveIfNeeded, previewFallback, notify]
+   );
+ 
+   const advance = useCallback(
+diff --git a/lib/player.js b/lib/player.js
+index c322a2c..9ce1728 100644
+--- a/lib/player.js
++++ b/lib/player.js
+@@ -66,10 +66,12 @@ function loadYouTubeApi() {
+ }
+ 
+ export class PlayerEngine {
+-  constructor({ onState, onEnded, onError } = {}) {
++  constructor({ onState, onEnded, onError, onYouTubeUnavailable } = {}) {
+     this.onState = onState || (() => {});
+     this.onEnded = onEnded || (() => {});
+     this.onError = onError || (() => {});
++    /** Called when the YouTube player can't run, so callers can substitute audio. */
++    this.onYouTubeUnavailable = onYouTubeUnavailable || (() => {});
+ 
+     this.mode = null; // 'synth' | 'audio' | 'youtube'
+     this.track = null;
+@@ -207,6 +209,26 @@ export class PlayerEngine {
+     }
+ 
+     if (track.source === 'youtube') {
++      // Warm player: start it inside the caller's gesture, with nothing awaited
++      // in between. Building the player first (script fetch + onReady) pushes
++      // playVideo() outside the activation window, which iOS then refuses.
++      if (this.yt && this.ytReady) {
++        this.mode = 'youtube';
++        this.ready = true;
++        try {
++          this.yt.loadVideoById(track.sourceId);
++          this.yt.setVolume(Math.round(this.volume * 100));
++          if (autoplay) {
++            this.yt.playVideo();
++            this.playing = true;
++          }
++          this.#emit();
++        } catch {
++          this.onYouTubeUnavailable(track);
++        }
++        return;
++      }
++
+       try {
+         await this.#ensureYouTube();
+         this.mode = 'youtube';
+@@ -219,7 +241,7 @@ export class PlayerEngine {
+           this.#emit();
+         }
+       } catch (err) {
+-        this.onError(err.message || 'YouTube playback unavailable.');
++        this.onYouTubeUnavailable(track, err.message);
+       }
+       return;
+     }
+@@ -238,6 +260,18 @@ export class PlayerEngine {
+     else this.#emit();
+   }
+ 
++  /**
++   * Build the YouTube player ahead of time so the eventual tap can call
++   * playVideo() immediately. Safe to call repeatedly.
++   */
++  warmYouTube() {
++    if (this.ytReady || this.ytWarming) return;
++    this.ytWarming = true;
++    this.#ensureYouTube().catch(() => {
++      this.ytWarming = false;
++    });
++  }
++
+   async #ensureYouTube() {
+     if (this.yt && this.ytReady) return;
+     const YT = await loadYouTubeApi();
+@@ -258,7 +292,7 @@ export class PlayerEngine {
+             this.ytReady = true;
+             resolve();
+           },
+-          onError: () => this.onError('This video cannot be played here.'),
++          onError: () => this.onYouTubeUnavailable(this.track, 'player error'),
+           onStateChange: (e) => {
+             if (e.data === 0) this.#ended();
+             if (e.data === 1) {
+-- 
+2.43.0
+

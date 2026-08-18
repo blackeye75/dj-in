@@ -1,0 +1,286 @@
+From c3d513ba137aae64cd4cd34598bf437c3d0f8835 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 16 Aug 2026 18:50:45 +0000
+Subject: [PATCH] Fix audio in in-app browsers by claiming the gesture up front
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Tapping a track ran an async resolve before reaching play(). Desktop Chrome
+allows that because activation is sticky for the document, but WKWebView —
+what Instagram, Facebook and Messenger embed on iOS — only honours a gesture
+within the task that received it, so playback was refused.
+
+- PlayerEngine.unlock() primes the <audio> element with 0.05s of silence and
+  resumes the AudioContext. It is called synchronously at the top of playAt
+  and toggle, before any await, plus once on the first touch anywhere.
+- A blocked play() now reports which app is restricting it instead of a
+  generic autoplay message, and clears the playing flag it wrongly set.
+- InAppBrowserNotice points at Open in browser, and at the iOS ringer switch,
+  which mutes HTML audio regardless of anything the page does.
+
+The e2e suites cannot reproduce the original failure: Chromium grants sticky
+document activation, so the pre-fix build passes the same test. They do
+confirm no regression under the strictest policy Chromium offers.
+
+Also stops the mobile blinder check sampling its baseline from one frame,
+which intermittently landed on a strobe flash and failed.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_018JjAD7WNZmP26cnkvFDZws
+---
+ app/page.js                       |  2 +
+ app/show-context.jsx              | 21 ++++++++-
+ components/InAppBrowserNotice.jsx | 50 ++++++++++++++++++++
+ lib/player.js                     | 76 ++++++++++++++++++++++++++++++-
+ scripts/e2e-mobile.mjs            | 10 +++-
+ 5 files changed, 156 insertions(+), 3 deletions(-)
+ create mode 100644 components/InAppBrowserNotice.jsx
+
+diff --git a/app/page.js b/app/page.js
+index 9ba21f0..074cc42 100644
+--- a/app/page.js
++++ b/app/page.js
+@@ -12,6 +12,7 @@ import LyricsPanel from '@/components/LyricsPanel';
+ import ShowStats from '@/components/ShowStats';
+ import ThemeSelect from '@/components/ThemeSelect';
+ import TransportBar from '@/components/TransportBar';
++import InAppBrowserNotice from '@/components/InAppBrowserNotice';
+ 
+ const SECTIONS = [
+   { id: 'stage', label: 'Stage' },
+@@ -63,6 +64,7 @@ function Show() {
+         <LightStage />
+       </div>
+ 
++      <InAppBrowserNotice />
+       <SideNav active={active} />
+ 
+       <main ref={rootRef} className="snap-root relative z-10">
+diff --git a/app/show-context.jsx b/app/show-context.jsx
+index 3c7f896..7d83051 100644
+--- a/app/show-context.jsx
++++ b/app/show-context.jsx
+@@ -66,7 +66,21 @@ export function ShowProvider({ children }) {
+       onError: (msg) => notify(msg),
+     });
+     engineRef.current = engine;
+-    return () => engine.destroy();
++
++    // Catch-all: the very first touch anywhere primes audio, so even a tap we
++    // don't own (scrolling, opening the dropdown) buys the permission.
++    const prime = () => engine.unlock();
++    const opts = { once: true, capture: true, passive: true };
++    window.addEventListener('pointerdown', prime, opts);
++    window.addEventListener('touchend', prime, opts);
++    window.addEventListener('keydown', prime, opts);
++
++    return () => {
++      window.removeEventListener('pointerdown', prime, opts);
++      window.removeEventListener('touchend', prime, opts);
++      window.removeEventListener('keydown', prime, opts);
++      engine.destroy();
++    };
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, []);
+ 
+@@ -174,6 +188,10 @@ export function ShowProvider({ children }) {
+     async (index, { autoplay = true } = {}) => {
+       const q = queueRef.current.queue;
+       if (index < 0 || index >= q.length) return;
++      // Claim the user gesture before anything async: resolving a track hits
++      // the network, and by the time that returns the activation is gone on
++      // iOS and in in-app browsers.
++      engineRef.current?.unlock();
+       setCurrentIndex(index);
+       const track = await resolveIfNeeded(q[index]);
+       await engineRef.current?.load(track, { autoplay });
+@@ -274,6 +292,7 @@ export function ShowProvider({ children }) {
+   const toggle = useCallback(async () => {
+     const engine = engineRef.current;
+     if (!engine) return;
++    engine.unlock();
+     if (!engine.track && queueRef.current.queue.length) {
+       await playAt(Math.max(0, queueRef.current.currentIndex));
+       return;
+diff --git a/components/InAppBrowserNotice.jsx b/components/InAppBrowserNotice.jsx
+new file mode 100644
+index 0000000..aff707e
+--- /dev/null
++++ b/components/InAppBrowserNotice.jsx
+@@ -0,0 +1,50 @@
++'use client';
++
++import { useEffect, useState } from 'react';
++import { inAppBrowser } from '@/lib/player';
++
++/**
++ * In-app browsers (Instagram, Facebook, Messenger…) run a stripped WebView
++ * with tighter media rules than the real browser, and iOS additionally mutes
++ * HTML audio when the ringer switch is off. Priming the audio element on the
++ * first gesture fixes most cases, but not all — so tell people where the
++ * "open in browser" escape hatch is instead of leaving them with silence.
++ */
++export default function InAppBrowserNotice() {
++  const [app, setApp] = useState('');
++  const [dismissed, setDismissed] = useState(true);
++
++  useEffect(() => {
++    const name = inAppBrowser();
++    if (!name) return;
++    setApp(name);
++    setDismissed(sessionStorage.getItem('dj-in-iab-notice') === 'hidden');
++  }, []);
++
++  if (!app || dismissed) return null;
++
++  return (
++    <div className="fixed top-0 inset-x-0 z-50 px-3 pt-3">
++      <div className="mx-auto max-w-lg panel px-3 py-2.5 flex items-start gap-3">
++        <span className="text-base leading-none mt-0.5">🔊</span>
++        <p className="text-[11px] leading-relaxed text-white/70 flex-1">
++          You&apos;re in {app}&apos;s built-in browser, which limits audio. If tracks stay silent, tap the{' '}
++          <strong className="text-white/90">···</strong> menu and choose{' '}
++          <strong className="text-white/90">Open in browser</strong>.
++          <span className="block text-white/40 mt-0.5">On iPhone, also check the ringer switch isn&apos;t on silent.</span>
++        </p>
++        <button
++          type="button"
++          aria-label="Dismiss"
++          className="text-white/40 hover:text-white px-2 py-1 flex-none"
++          onClick={() => {
++            setDismissed(true);
++            sessionStorage.setItem('dj-in-iab-notice', 'hidden');
++          }}
++        >
++          ✕
++        </button>
++      </div>
++    </div>
++  );
++}
+diff --git a/lib/player.js b/lib/player.js
+index d70b1cb..c322a2c 100644
+--- a/lib/player.js
++++ b/lib/player.js
+@@ -16,6 +16,34 @@ import { SynthDeck, synthDuration } from './synth';
+ 
+ const YT_SRC = 'https://www.youtube.com/iframe_api';
+ 
++/**
++ * 0.05s of silence. Playing this on the <audio> element inside a real user
++ * gesture marks the element as user-activated; after that the browser lets us
++ * swap `src` and call play() from async code.
++ *
++ * Without it, in-app browsers (Instagram, Facebook, Messenger — WKWebView on
++ * iOS) refuse playback, because our tap handler awaits a network resolve
++ * before reaching play() and the activation has expired by then. Desktop
++ * Chrome allows it anyway via its media-engagement heuristic, which is why
++ * this only shows up on phones.
++ */
++const SILENT_WAV =
++  'data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA=';
++
++/** In-app browsers with restrictive media policies and no address bar. */
++export function inAppBrowser() {
++  if (typeof navigator === 'undefined') return '';
++  const ua = navigator.userAgent || '';
++  if (/Instagram/i.test(ua)) return 'Instagram';
++  if (/FBAN|FBAV|FB_IAB/i.test(ua)) return 'Facebook';
++  if (/Messenger/i.test(ua)) return 'Messenger';
++  if (/Snapchat/i.test(ua)) return 'Snapchat';
++  if (/Line\//i.test(ua)) return 'LINE';
++  if (/Twitter/i.test(ua)) return 'X';
++  if (/LinkedInApp/i.test(ua)) return 'LinkedIn';
++  return '';
++}
++
+ let ytApiPromise = null;
+ function loadYouTubeApi() {
+   if (typeof window === 'undefined') return Promise.reject(new Error('no window'));
+@@ -95,6 +123,39 @@ export class PlayerEngine {
+     }
+   }
+ 
++  /**
++   * Must be called synchronously from a user gesture, before any await.
++   * Primes the audio element and the AudioContext so later programmatic
++   * playback is permitted. Safe to call repeatedly; it only runs once.
++   */
++  unlock() {
++    if (this.unlocked) return;
++    this.unlocked = true;
++
++    const ctx = this.#ensureContext();
++    if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
++
++    const a = this.audio;
++    if (!a || a.src) return; // never interrupt a track that is already loaded
++    try {
++      a.muted = true;
++      a.src = SILENT_WAV;
++      const p = a.play();
++      const settle = () => {
++        try {
++          a.pause();
++          a.removeAttribute('src');
++          a.load();
++        } catch {}
++        a.muted = false;
++      };
++      if (p && p.then) p.then(settle, settle);
++      else settle();
++    } catch {
++      this.unlocked = false; // let the next gesture try again
++    }
++  }
++
+   /** Live analysis, or null when the current source can't be analysed. */
+   analysis() {
+     if (this.mode !== 'synth' || !this.analyser || !this.playing) return null;
+@@ -225,7 +286,20 @@ export class PlayerEngine {
+       this.playing = true;
+     } else if (this.mode === 'audio') {
+       const p = this.audio.play();
+-      if (p && p.catch) p.catch(() => this.onError('Tap play once more — the browser blocked autoplay.'));
++      if (p && p.catch) {
++        p.catch((err) => {
++          this.playing = false;
++          this.#emit();
++          const app = inAppBrowser();
++          if (err && err.name === 'NotAllowedError' && app) {
++            this.onError(`${app}'s built-in browser blocked playback. Open this page in Chrome or Safari for sound.`);
++          } else if (err && err.name === 'NotAllowedError') {
++            this.onError('Tap play once more — the browser blocked autoplay.');
++          } else {
++            this.onError('This preview could not be played.');
++          }
++        });
++      }
+       this.playing = true;
+     } else if (this.mode === 'youtube' && this.yt) {
+       this.yt.playVideo();
+diff --git a/scripts/e2e-mobile.mjs b/scripts/e2e-mobile.mjs
+index 9e5d43a..7e3fa31 100644
+--- a/scripts/e2e-mobile.mjs
++++ b/scripts/e2e-mobile.mjs
+@@ -73,7 +73,15 @@ const sample = () =>
+     for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2];
+     return s / (d.length / 4);
+   });
+-const idle = await sample();
++// Baseline over several frames, taking the darkest: a single sample can land
++// on a strobe flash or the auto-blinder that fires on the bar.
++const idles = [];
++for (let i = 0; i < 5; i++) {
++  idles.push(await sample());
++  await page.waitForTimeout(90);
++}
++const idle = Math.min(...idles);
++
+ const blind = page.getByRole('button', { name: 'Blind!' });
+ await blind.hover();
+ await page.mouse.down();
+-- 
+2.43.0
+

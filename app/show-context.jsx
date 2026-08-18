@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PlayerEngine } from '@/lib/player';
+import { PlayerEngine, inAppBrowser } from '@/lib/player';
 import { defaultSceneFor, getTheme, THEMES } from '@/lib/themes';
 
 const ShowContext = createContext(null);
@@ -64,6 +64,17 @@ export function ShowProvider({ children }) {
       onState: (s) => setPlayerState((prev) => ({ ...prev, ...s })),
       onEnded: () => advance(1, true),
       onError: (msg) => notify(msg),
+      // The embedded player failed anywhere else (blocked, embed disabled,
+      // offline). Substitute an audio preview rather than sitting silent.
+      onYouTubeUnavailable: async (track) => {
+        const alt = track ? await previewFallback(track) : null;
+        if (alt) {
+          notify('That video can’t play here — using a 30-second preview instead.');
+          engine.load(alt);
+        } else {
+          notify('That video cannot be played in this browser.');
+        }
+      },
     });
     engineRef.current = engine;
 
@@ -109,6 +120,14 @@ export function ShowProvider({ children }) {
   useEffect(() => {
     loadTracks(themeId);
   }, [themeId, loadTracks]);
+
+  // Build the YouTube player before it is needed, so the tap that starts a
+  // video isn't spent waiting for a script to download. Pointless in an in-app
+  // browser, where we substitute audio anyway.
+  useEffect(() => {
+    if (inAppBrowser()) return;
+    if (queue.some((t) => t.source === 'youtube')) engineRef.current?.warmYouTube();
+  }, [queue]);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,6 +203,31 @@ export function ShowProvider({ children }) {
     }
   }, [notify]);
 
+  /**
+   * Find a playable audio preview for a track the YouTube player can't handle.
+   * In-app browsers run a WebView that blocks the embedded player, so the
+   * 30-second preview is the difference between sound and silence there.
+   */
+  const previewFallback = useCallback(
+    async (track) => {
+      const query = `${track.title || ''} ${track.artist || ''}`.trim();
+      if (!query) return null;
+      try {
+        const res = await fetch('/api/tracks/resolve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.resolved?.previewUrl) return null;
+        return { ...track, ...data.resolved, source: 'itunes' };
+      } catch {
+        return null;
+      }
+    },
+    []
+  );
+
   const playAt = useCallback(
     async (index, { autoplay = true } = {}) => {
       const q = queueRef.current.queue;
@@ -193,10 +237,22 @@ export function ShowProvider({ children }) {
       // iOS and in in-app browsers.
       engineRef.current?.unlock();
       setCurrentIndex(index);
-      const track = await resolveIfNeeded(q[index]);
+      let track = await resolveIfNeeded(q[index]);
+
+      // Don't even attempt the embedded player inside an in-app browser: it
+      // stalls and then fails. Go straight to an audio preview.
+      const app = inAppBrowser();
+      if (track.source === 'youtube' && app) {
+        const alt = await previewFallback(track);
+        if (alt) {
+          notify(`${app}'s browser can't run the YouTube player — playing a 30-second preview.`);
+          track = alt;
+        }
+      }
+
       await engineRef.current?.load(track, { autoplay });
     },
-    [resolveIfNeeded]
+    [resolveIfNeeded, previewFallback, notify]
   );
 
   const advance = useCallback(
