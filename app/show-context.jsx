@@ -3,6 +3,7 @@
 import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PlayerEngine, inAppBrowser, restrictedWebView } from '@/lib/player';
 import { defaultSceneFor, getTheme, THEMES } from '@/lib/themes';
+import { previewQueries } from '@/lib/searchQuery';
 
 const ShowContext = createContext(null);
 
@@ -29,6 +30,7 @@ export function ShowProvider({ children }) {
   const [toast, setToast] = useState('');
 
   const engineRef = useRef(null);
+  const playSeq = useRef(0);
   const rigRef = useRef(null);
   const sceneRef = useRef(scene);
   const queueRef = useRef({ queue, currentIndex, repeat, shuffle });
@@ -208,9 +210,8 @@ export function ShowProvider({ children }) {
    * In-app browsers run a WebView that blocks the embedded player, so the
    * 30-second preview is the difference between sound and silence there.
    */
-  const previewFallback = useCallback(
-    async (track) => {
-      const query = `${track.title || ''} ${track.artist || ''}`.trim();
+  const previewFallback = useCallback(async (track) => {
+    const attempt = async (query) => {
       if (!query) return null;
       try {
         const res = await fetch('/api/tracks/resolve', {
@@ -224,35 +225,61 @@ export function ShowProvider({ children }) {
       } catch {
         return null;
       }
-    },
-    []
-  );
+    };
+
+    // Try the cleaned query first, then just the song part. Searching iTunes
+    // for the raw YouTube metadata finds nothing: the title carries "(Official
+    // Video)" and the artist is really a channel name like "BillieEilishVEVO".
+    const queries = previewQueries(track);
+    for (const q of queries) {
+      const hit = await attempt(q);
+      if (hit) return hit;
+    }
+    return null;
+  }, []);
 
   const playAt = useCallback(
     async (index, { autoplay = true } = {}) => {
       const q = queueRef.current.queue;
       if (index < 0 || index >= q.length) return;
+
+      // Each call claims a ticket. Tapping Next three times starts three of
+      // these, and every await below is a network round-trip they can finish
+      // out of order — without this, a stale run reaches load() last and the
+      // deck ends up on a track nobody asked for.
+      const seq = ++playSeq.current;
+      const superseded = () => seq !== playSeq.current;
+
       // Claim the user gesture before anything async: resolving a track hits
       // the network, and by the time that returns the activation is gone on
       // iOS and in in-app browsers.
       engineRef.current?.unlock();
       setCurrentIndex(index);
-      let track = await resolveIfNeeded(q[index]);
 
-      // Don't even attempt the embedded player inside a WebView: it accepts
-      // playVideo() and silently ignores it. Go straight to an audio preview.
-      if (track.source === 'youtube' && restrictedWebView()) {
-        const alt = await previewFallback(track);
-        if (alt) {
-          const app = inAppBrowser();
-          notify(
-            `${app ? `${app}'s browser` : 'This in-app browser'} can't run the YouTube player — playing a 30-second preview.`
-          );
-          track = alt;
+      try {
+        let track = await resolveIfNeeded(q[index]);
+        if (superseded()) return;
+
+        // Don't even attempt the embedded player inside a WebView: it accepts
+        // playVideo() and silently ignores it. Go straight to an audio preview.
+        if (track.source === 'youtube' && restrictedWebView()) {
+          const alt = await previewFallback(track);
+          if (superseded()) return;
+          if (alt) {
+            const app = inAppBrowser();
+            notify(
+              `${app ? `${app}'s browser` : 'This in-app browser'} can't run the YouTube player — playing a 30-second preview.`
+            );
+            track = alt;
+          }
         }
-      }
 
-      await engineRef.current?.load(track, { autoplay });
+        if (superseded()) return;
+        await engineRef.current?.load(track, { autoplay });
+      } catch {
+        // Never let a superseded or failed load escape as an unhandled
+        // rejection — the transport stays usable either way.
+      }
     },
     [resolveIfNeeded, previewFallback, notify]
   );
