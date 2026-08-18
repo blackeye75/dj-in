@@ -201,8 +201,11 @@ body {
 }
 
 .seg button {
-  flex: 1;
-  min-width: 0;
+  /* Wrap to a new row rather than crushing labels into each other. */
+  flex: 1 1 auto;
+  min-width: 54px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 5px 8px;
   font-size: 11px;
   letter-spacing: 0.05em;

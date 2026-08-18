@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useShow } from '@/app/show-context';
 import { COLOR_MODES, DIRECTIONS, FIXTURE_HINTS, FIXTURE_LABELS, PATTERNS } from '@/lib/themes';
+import { BACKDROPS, HEX_MODES } from '@/lib/backdrop';
 import { Fader, LedDot, Panel, Segmented, Switch } from './ui';
 
 const GROUPS = [
@@ -150,6 +151,61 @@ export default function ControlDesk() {
         </div>
       </Panel>
 
+      {/* Column four holds the two surface/effect racks, so the desk stays a
+          single row of four at desk width. */}
+      <div className="space-y-4 min-w-0">
+      {/* --------------------------------------------------- backdrop */}
+      <Panel
+        className="rack-screw"
+        title="Back wall / LED surface"
+        right={<span className="text-[10px] text-white/40">{scene.backdrop === 'off' ? 'dark' : scene.backdrop}</span>}
+      >
+        <div className="space-y-3">
+          <Segmented
+            label="Wall pattern"
+            options={BACKDROPS}
+            value={scene.backdrop}
+            onChange={(v) => updateScene({ backdrop: v })}
+          />
+          <div className="grid sm:grid-cols-2 gap-x-4">
+            <Fader
+              label="Wall brightness"
+              value={scene.backdropIntensity}
+              disabled={scene.backdrop === 'off'}
+              onChange={(v) => updateScene({ backdropIntensity: v })}
+              unit="%"
+            />
+            <Fader
+              label="Wall speed"
+              value={scene.backdropSpeed}
+              disabled={scene.backdrop === 'off'}
+              onChange={(v) => updateScene({ backdropSpeed: v })}
+              unit="%"
+            />
+          </div>
+
+          <div className="panel-tight px-1 py-1 flex items-center gap-2 pr-3 min-w-0">
+            <Switch
+              label={FIXTURE_LABELS.hexPanel}
+              hint={FIXTURE_HINTS.hexPanel}
+              on={f.hexPanel}
+              onToggle={() => toggleFixture('hexPanel')}
+            />
+            <span className="flex-none">
+              <LedDot on={f.hexPanel} color={theme.accent} />
+            </span>
+          </div>
+
+          <Segmented
+            label="Hex wall mode"
+            options={HEX_MODES}
+            value={scene.hexMode}
+            onChange={(v) => updateScene({ hexMode: v })}
+          />
+          <p className="text-[10px] text-white/35">Sits behind the truss — beams and haze read in front of it.</p>
+        </div>
+      </Panel>
+
       {/* ---------------------------------------------------- effects */}
       <Panel className="rack-screw" title="Effect engines">
         <div className="space-y-3">
@@ -191,6 +247,7 @@ export default function ControlDesk() {
           </div>
         </div>
       </Panel>
+      </div>
     </div>
   );
 }
