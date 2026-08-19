@@ -5,6 +5,7 @@ import { useShow } from '@/app/show-context';
 import { COLOR_MODES, DIRECTIONS, FIXTURE_HINTS, FIXTURE_LABELS, PATTERNS } from '@/lib/themes';
 import { BACKDROPS, HEX_MODES } from '@/lib/backdrop';
 import { RETRO_MODES, RETRO_RIGS, DMX_MODES } from '@/lib/retroHex';
+import { SINGLE_MODES } from '@/lib/megaHex';
 import { Fader, LedDot, Panel, Segmented, Switch } from './ui';
 
 const GROUPS = [
@@ -48,7 +49,7 @@ export default function ControlDesk() {
   }, [holdBlinder, dropBlinder]);
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 auto-rows-min items-start">
       {/* ------------------------------------------------------ master */}
       <Panel
         className="rack-screw"
@@ -152,10 +153,7 @@ export default function ControlDesk() {
         </div>
       </Panel>
 
-      {/* Column four holds the surface/effect racks, so the desk stays a
-          single row of four at desk width. */}
-      <div className="space-y-4 min-w-0">
-        {/* ------------------------------------------------ retro hex */}
+      {/* ---------------------------------------------------- retro hex */}
         <Panel
           className="rack-screw"
           title="7-Head Retro Hex Par"
@@ -257,7 +255,81 @@ export default function ControlDesk() {
             value={scene.hexMode}
             onChange={(v) => updateScene({ hexMode: v })}
           />
+          <Fader
+            label="Hex wall level"
+            value={scene.hexIntensity}
+            disabled={!f.hexPanel}
+            onChange={(v) => updateScene({ hexIntensity: v })}
+            unit="%"
+          />
           <p className="text-[10px] text-white/35">Sits behind the truss — beams and haze read in front of it.</p>
+        </div>
+      </Panel>
+
+      {/* -------------------------------------------- single-head hex */}
+      <Panel
+        className="rack-screw"
+        title="Single-Head Retro Hex"
+        right={
+          <span className="flex items-center gap-2 text-[10px] text-white/40">
+            <LedDot on={f.singleHex} color={theme.accent} />
+            {scene.singleDmx === 'ch4' ? '4ch' : '42ch'}
+          </span>
+        }
+      >
+        <div className="space-y-3">
+          <div className="panel-tight px-1 py-1 flex items-center gap-2 pr-3 min-w-0">
+            <Switch
+              label={FIXTURE_LABELS.singleHex}
+              hint={FIXTURE_HINTS.singleHex}
+              on={f.singleHex}
+              onToggle={() => toggleFixture('singleHex')}
+            />
+          </div>
+
+          <Segmented
+            label="Menu mode"
+            options={SINGLE_MODES}
+            value={scene.singleMode}
+            onChange={(v) => updateScene({ singleMode: v })}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Segmented label="Stand" options={RETRO_RIGS} value={scene.singleRig} onChange={(v) => updateScene({ singleRig: v })} />
+            <Segmented label="Head DMX" options={DMX_MODES} value={scene.singleDmx} onChange={(v) => updateScene({ singleDmx: v })} />
+          </div>
+
+          <Fader
+            label="Output"
+            value={scene.singleIntensity}
+            disabled={!f.singleHex}
+            onChange={(v) => updateScene({ singleIntensity: v })}
+            unit="%"
+          />
+          <Fader
+            label="Mic sensitivity"
+            value={scene.singleMic}
+            disabled={!f.singleHex || scene.singleMode !== 'sound'}
+            onChange={(v) => updateScene({ singleMic: v })}
+            unit="%"
+          />
+          <Fader
+            label="Halo up-wash"
+            value={scene.singleHalo}
+            disabled={!f.singleHex}
+            onChange={(v) => updateScene({ singleHalo: v })}
+            unit="%"
+          />
+          <Fader
+            label="Fade speed"
+            value={scene.singleFade}
+            disabled={!f.singleHex || scene.singleMode === 'static'}
+            onChange={(v) => updateScene({ singleFade: v })}
+            unit="%"
+          />
+          <p className="text-[10px] text-white/35 leading-relaxed">
+            Aimed up off a riser: the halo frames the DJ instead of firing into their eyes.
+            {scene.singleMode === 'sound' ? ' Mic sensitivity sets how hard the kick drives it.' : ''}
+          </p>
         </div>
       </Panel>
 
@@ -302,7 +374,6 @@ export default function ControlDesk() {
           </div>
         </div>
       </Panel>
-      </div>
     </div>
   );
 }
