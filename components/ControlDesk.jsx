@@ -11,7 +11,7 @@ import { Fader, LedDot, Panel, Segmented, Switch } from './ui';
 const GROUPS = [
   { title: 'Moving Heads', keys: ['spot', 'wash', 'beam'] },
   { title: 'PAR Cans', keys: ['ledPar', 'classicPar'] },
-  { title: 'Effects', keys: ['strobe', 'laser', 'blinder', 'fog'] },
+  { title: 'Effects', keys: ['strobe', 'laser', 'blinder', 'fog', 'smoke'] },
 ];
 
 export default function ControlDesk() {
@@ -313,7 +313,7 @@ export default function ControlDesk() {
             unit="%"
           />
           <Fader
-            label="Halo up-wash"
+            label="Halo throw"
             value={scene.singleHalo}
             disabled={!f.singleHex}
             onChange={(v) => updateScene({ singleHalo: v })}
@@ -327,7 +327,7 @@ export default function ControlDesk() {
             unit="%"
           />
           <p className="text-[10px] text-white/35 leading-relaxed">
-            Aimed up off a riser: the halo frames the DJ instead of firing into their eyes.
+            Flown off the truss and aimed down, so it lands a pool on the booth instead of crowding the floor fixtures.
             {scene.singleMode === 'sound' ? ' Mic sensitivity sets how hard the kick drives it.' : ''}
           </p>
         </div>
@@ -370,6 +370,20 @@ export default function ControlDesk() {
             />
             <p className="text-[10px] text-white/35 mt-1">
               {f.fog ? 'Haze makes every beam visible in the air' : 'No haze — beams fade, only pools land'}
+            </p>
+          </div>
+          <div>
+            <Fader
+              label="Smoke density"
+              value={scene.smokeDensity}
+              disabled={!f.smoke}
+              onChange={(v) => updateScene({ smokeDensity: v })}
+              unit="%"
+            />
+            <p className="text-[10px] text-white/35 mt-1">
+              {f.smoke
+                ? 'Heavy low smoke on the deck — it climbs on the kick'
+                : 'Smoke machine is patched out'}
             </p>
           </div>
         </div>
