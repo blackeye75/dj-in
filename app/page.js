@@ -13,6 +13,7 @@ import ShowStats from '@/components/ShowStats';
 import ThemeSelect from '@/components/ThemeSelect';
 import TransportBar from '@/components/TransportBar';
 import InAppBrowserNotice from '@/components/InAppBrowserNotice';
+import DjConsole from '@/components/DjConsole';
 
 const SECTIONS = [
   { id: 'stage', label: 'Stage' },
@@ -120,6 +121,7 @@ function SideNav({ active }) {
 
 function StageSection() {
   const { theme, toggle, playerState, current, meta } = useShow();
+  const [console_, setConsole] = useState(false);
   return (
     <section id="stage" className="snap-section relative flex flex-col">
       {/* Legibility scrim: the rig behind this text is bright and moving. */}
@@ -161,6 +163,14 @@ function StageSection() {
             >
               {playerState.playing ? 'Pause the set' : 'Start the set'}
             </button>
+            <button
+              type="button"
+              onClick={() => setConsole(true)}
+              className="btn !px-4 !py-3 !text-sm whitespace-nowrap"
+              title="Two decks, EQ and a crossfader"
+            >
+              DJ console
+            </button>
             <div className="min-w-0 flex-1">
               <p className="text-[10px] sm:text-[11px] text-white/40 uppercase tracking-[0.18em]">Now on the deck</p>
               <p className="text-[13px] sm:text-sm truncate">
@@ -174,6 +184,8 @@ function StageSection() {
       <div className="relative px-4 sm:px-5 md:px-7 pt-4 pb-24 text-[10px] tracking-[0.24em] uppercase text-white/35">
         Scroll for the light desk ↓
       </div>
+
+      {console_ ? <DjConsole onClose={() => setConsole(false)} /> : null}
     </section>
   );
 }
