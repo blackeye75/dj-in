@@ -9,7 +9,7 @@ import { useShow } from '@/app/show-context';
  */
 export function usePlayhead(fps = 20) {
   const { engineRef, playerState, current } = useShow();
-  const [state, setState] = useState({ position: 0, duration: 0 });
+  const [state, setState] = useState({ position: 0, duration: 0, buffered: 0 });
 
   useEffect(() => {
     let raf = 0;
@@ -23,8 +23,13 @@ export function usePlayhead(fps = 20) {
       if (!engine) return;
       const position = engine.position || 0;
       const duration = engine.duration || 0;
+      const buffered = engine.buffered || 0;
       setState((prev) =>
-        Math.abs(prev.position - position) > 0.02 || prev.duration !== duration ? { position, duration } : prev
+        Math.abs(prev.position - position) > 0.02 ||
+        prev.duration !== duration ||
+        Math.abs(prev.buffered - buffered) > 0.05
+          ? { position, duration, buffered }
+          : prev
       );
     };
     raf = requestAnimationFrame(tick);

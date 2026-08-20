@@ -18,16 +18,21 @@ const results = [];
 const check = (n, ok, extra = '') => results.push(`${ok ? 'PASS' : 'FAIL'}  ${n}${extra ? ' — ' + extra : ''}`);
 
 /** Mono 16-bit WAV: a decaying sine click on every beat at `bpm`. */
-function clickTrack({ bpm = 128, seconds = 10, sr = 44100 } = {}) {
+// Long enough to still be playing by the last check — a short file ends
+// mid-suite and the fader checks then compare silence against silence.
+function clickTrack({ bpm = 128, seconds = 45, sr = 44100 } = {}) {
   const n = sr * seconds;
   const data = Buffer.alloc(n * 2);
   const beat = (60 / bpm) * sr;
   for (let i = 0; i < n; i++) {
     const since = i % beat;
     // Short percussive burst, plus a quiet bed so the file isn't pure silence.
-    const env = Math.exp(-since / (sr * 0.02));
+    // 60 ms of decay, not 20: the onset stays sharp enough for tempo detection
+    // either way, but a 20 ms click is audible for well under a tenth of each
+    // beat and the level meter samples straight past it most of the time.
+    const env = Math.exp(-since / (sr * 0.06));
     const click = Math.sin((2 * Math.PI * 180 * since) / sr) * env * 0.85;
-    const bed = Math.sin((2 * Math.PI * 55 * i) / sr) * 0.04;
+    const bed = Math.sin((2 * Math.PI * 55 * i) / sr) * 0.08;
     data.writeInt16LE(Math.max(-32767, Math.min(32767, Math.round((click + bed) * 32767))), i * 2);
   }
   const header = Buffer.alloc(44);
@@ -84,9 +89,9 @@ await page.getByRole('button', { name: 'Deck A play' }).click();
 await page.waitForTimeout(1200);
 
 let peak = 0;
-for (let i = 0; i < 12; i++) {
+for (let i = 0; i < 26; i++) {
   peak = Math.max(peak, Number(await meter()));
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(80);
 }
 check('audio reaches the master bus', peak > 8, `peak level ${peak}`);
 
@@ -136,7 +141,7 @@ for (let i = 0; i < 8; i++) {
   killed = Math.max(killed, Number(await meter()));
   await page.waitForTimeout(100);
 }
-check('channel fader cuts the deck', killed < before / 2, `${before} -> ${killed}`);
+check('channel fader cuts the deck', before > 3 && killed < before / 2, `${before} -> ${killed}`);
 await setRange('Deck A channel', 0.85);
 
 /* Looping: an 4-beat loop at 128 BPM is 1.875s, and the console draws it. */

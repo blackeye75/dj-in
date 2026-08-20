@@ -7,8 +7,9 @@ import { formatTime } from './ui';
 /** Always-on transport, so the set stays controllable from any section. */
 export default function TransportBar() {
   const { current, playerState, toggle, next, prev, theme, seek } = useShow();
-  const { position, duration } = usePlayhead(10);
+  const { position, duration, buffered } = usePlayhead(10);
   const pct = duration > 0 ? (position / duration) * 100 : 0;
+  const bufPct = duration > 0 ? Math.min(100, (buffered / duration) * 100) : 0;
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 border-t border-white/10 bg-black/70 backdrop-blur-xl">
@@ -20,7 +21,14 @@ export default function TransportBar() {
         }}
         title="Seek"
       >
-        <div className="h-full transition-[width] duration-150" style={{ width: `${pct}%`, background: theme.accent }} />
+        {/* Downloaded behind, played in front — the streaming-player idiom. */}
+        <div className="relative h-full">
+          <div className="absolute inset-y-0 left-0 bg-white/25" style={{ width: `${bufPct}%` }} />
+          <div
+            className="absolute inset-y-0 left-0 transition-[width] duration-150"
+            style={{ width: `${pct}%`, background: theme.accent }}
+          />
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center gap-3">
@@ -35,7 +43,13 @@ export default function TransportBar() {
 
         <div className="min-w-0 flex-1">
           <p className="text-[12px] truncate">{current?.title || 'Nothing loaded'}</p>
-          <p className="text-[10px] text-white/40 truncate">{current?.artist || theme.label}</p>
+          <p className="text-[10px] text-white/40 truncate">
+            {playerState.buffering ? (
+              <span className="text-amber-300/80">Buffering…</span>
+            ) : (
+              current?.artist || theme.label
+            )}
+          </p>
         </div>
 
         <span className="hidden sm:block text-[10px] text-white/35 tabular-nums">

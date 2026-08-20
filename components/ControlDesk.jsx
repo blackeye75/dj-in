@@ -381,9 +381,19 @@ export default function ControlDesk() {
               unit="%"
             />
             <p className="text-[10px] text-white/35 mt-1">
-              {f.smoke
-                ? 'Heavy low smoke on the deck — it climbs on the kick'
-                : 'Smoke machine is patched out'}
+              {f.smoke ? 'Heavy low smoke lying across the deck' : 'Smoke machine is patched out'}
+            </p>
+          </div>
+          <div>
+            <Fader
+              label="Smoke drift"
+              value={scene.smokeSpeed}
+              disabled={!f.smoke}
+              onChange={(v) => updateScene({ smokeSpeed: v })}
+              unit="%"
+            />
+            <p className="text-[10px] text-white/35 mt-1">
+              How fast the layer rolls across the stage. It runs at its own pace — smoke doesn’t pump on the beat.
             </p>
           </div>
         </div>

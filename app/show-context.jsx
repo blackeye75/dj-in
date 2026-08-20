@@ -185,7 +185,7 @@ export function ShowProvider({ children }) {
 
   /* ------------------------------------------------------------- queue */
 
-  const resolveIfNeeded = useCallback(async (track) => {
+  const resolveIfNeeded = useCallback(async (track, { quiet = false } = {}) => {
     if (track.source !== 'itunes' || track.previewUrl) return track;
     try {
       const res = await fetch('/api/tracks/resolve', {
@@ -200,10 +200,33 @@ export function ShowProvider({ children }) {
       setQueue((q) => q.map((r) => (r.id === track.id ? { ...r, ...data.resolved } : r)));
       return merged;
     } catch (err) {
-      notify(`No preview available for “${track.title}”.`);
+      // A background warm-up must never speak up: the listener didn't ask for
+      // this track yet, and a toast about it reads as a bug in the track
+      // that is actually playing.
+      if (!quiet) notify(`No preview available for “${track.title}”.`);
       return track;
     }
   }, [notify]);
+
+  /**
+   * Warm the next track while this one plays, the way a streaming app does.
+   * Resolving the preview URL ahead of time removes a network round-trip from
+   * the Next button, and preloading the bytes removes the rest of the wait.
+   */
+  useEffect(() => {
+    if (!playerState.playing || currentIndex < 0) return;
+    const upcoming = queue[currentIndex + 1];
+    if (!upcoming) return;
+    let cancelled = false;
+    const id = setTimeout(async () => {
+      const ready = await resolveIfNeeded(upcoming, { quiet: true });
+      if (!cancelled) engineRef.current?.preload(ready);
+    }, 1500);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, [playerState.playing, currentIndex, queue, resolveIfNeeded]);
 
   /**
    * Find a playable audio preview for a track the YouTube player can't handle.

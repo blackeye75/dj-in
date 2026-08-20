@@ -16,11 +16,13 @@ const SOURCE_BADGE = {
 export default function PlayerDeck() {
   const { current, playerState, toggle, next, prev, seek, setVolume, shuffle, setShuffle, repeat, cycleRepeat, theme } =
     useShow();
-  const { position, duration } = usePlayhead();
+  const { position, duration, buffered } = usePlayhead();
   const [scrub, setScrub] = useState(null);
 
   const shown = scrub != null ? scrub : position;
   const pct = duration > 0 ? (shown / duration) * 100 : 0;
+  const bufPct = duration > 0 ? Math.min(100, (buffered / duration) * 100) : 0;
+  const loaded = duration > 0 ? Math.round(bufPct) : 0;
 
   return (
     <Panel className="h-full flex flex-col" title="Deck">
@@ -79,7 +81,7 @@ export default function PlayerDeck() {
         <input
           type="range"
           className="fader"
-          style={{ '--pct': `${pct}%` }}
+          style={{ '--pct': `${pct}%`, '--buf': `${Math.max(pct, bufPct)}%` }}
           min={0}
           max={Math.max(1, duration)}
           step={0.1}
@@ -95,8 +97,17 @@ export default function PlayerDeck() {
             setScrub(null);
           }}
         />
-        <div className="flex justify-between text-[11px] text-white/40 -mt-1 tabular-nums">
+        <div className="flex justify-between items-center text-[11px] text-white/40 -mt-1 tabular-nums gap-2">
           <span>{formatTime(shown)}</span>
+          <span className="text-[10px] tracking-wide normal-case text-white/35 truncate">
+            {playerState.buffering ? (
+              <span className="text-amber-300/80">Buffering…</span>
+            ) : duration > 0 ? (
+              `${loaded}% loaded`
+            ) : (
+              ''
+            )}
+          </span>
           <span>{formatTime(duration)}</span>
         </div>
       </div>

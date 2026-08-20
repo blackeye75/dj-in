@@ -429,7 +429,12 @@ export default function DjConsole({ onClose }) {
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0">
             <p className="text-[10px] tracking-[0.24em] uppercase text-white/40">Performance</p>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight">DJ console</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight">DJ console</h2>
+              <span className="text-[9px] font-bold tracking-[0.18em] uppercase px-2 py-0.5 rounded-full border border-amber-300/40 bg-amber-300/10 text-amber-200">
+                Beta
+              </span>
+            </div>
             <p className="text-[11px] text-white/45 mt-1 leading-relaxed max-w-2xl">
               Two decks through a real signal path — trim, three-band EQ, filter and an equal-power crossfader.
               Tempo moves pitch with it: Web Audio has no time-stretch, so there is no key lock.
@@ -510,6 +515,14 @@ export default function DjConsole({ onClose }) {
               <p className="text-[9px] text-white/35 mt-1 leading-relaxed">
                 One output device means proper pre-fader listening isn’t possible — this mutes the master and plays
                 only the cued channels, so you can still find the drop before you bring it in.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-amber-300/25 bg-amber-300/[0.06] p-2.5">
+              <p className="text-[10px] font-semibold text-amber-200 tracking-wide uppercase mb-1">Beta — trial build</p>
+              <p className="text-[9px] text-white/50 leading-relaxed">
+                This console is not a finished build. It works, but it is incomplete and still changing: expect rough
+                edges, missing controls and behaviour that may change between visits. Don’t rely on it for a live set.
               </p>
             </div>
 
