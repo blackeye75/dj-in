@@ -173,6 +173,28 @@ await page.waitForTimeout(500);
 const bBpm = parseFloat((await deckB.locator('text=/\\d+\\.\\d BPM/').first().textContent()) || '0');
 check('sync pulls deck B to deck A', Math.abs(bBpm - bpm) < 1.5, `A ${bpm} / B ${bBpm}`);
 
+/* Every control must clear the fixed transport bar. Tailwind emits `sm:p-6`
+   after `pb-24`, so the shorthand used to win above 640px and the last control
+   in each deck sat underneath the player. */
+await page.evaluate(() => {
+  const sc = document.querySelector('.fixed.inset-0.z-50');
+  sc.scrollTop = sc.scrollHeight;
+});
+await page.waitForTimeout(500);
+const clearance = await page.evaluate(() => {
+  const cue = [...document.querySelectorAll('button')].find((b) =>
+    (b.getAttribute('aria-label') || '').includes('headphone cue')
+  );
+  const bar = document.querySelector('.fixed.bottom-0');
+  if (!cue || !bar) return null;
+  return Math.round(bar.getBoundingClientRect().top - cue.getBoundingClientRect().bottom);
+});
+check(
+  'the last deck control clears the transport bar',
+  clearance !== null && clearance >= 0,
+  `${clearance}px of clearance`
+);
+
 /* Close returns to the stage. */
 await page.getByRole('button', { name: 'Close' }).click();
 await page.waitForTimeout(400);

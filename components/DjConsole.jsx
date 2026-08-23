@@ -425,7 +425,10 @@ export default function DjConsole({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/92 backdrop-blur-md overflow-y-auto scroll-thin">
-      <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 pb-24">
+      {/* Explicit sides, not the `p-*` shorthand: Tailwind emits `sm:p-6` after
+          `pb-24`, so the shorthand won every breakpoint above 640px and the last
+          control in each deck ended up under the fixed transport bar. */}
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-32">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0">
             <p className="text-[10px] tracking-[0.24em] uppercase text-white/40">Performance</p>
